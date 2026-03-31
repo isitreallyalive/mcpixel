@@ -1,0 +1,7 @@
+[package]
+name = "mcpixel-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+mcpixel = { version = "0.1.0", path = "../mcpixel" }
