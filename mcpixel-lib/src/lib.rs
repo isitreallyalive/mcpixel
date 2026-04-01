@@ -1,7 +1,8 @@
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageBuffer, Rgb};
-use zenquant::{OutputFormat, QuantizeConfig, RGB};
+use zenquant::{OutputFormat, QuantizeConfig, QuantizeResult, RGB};
 
+/// Resize an image to fit within a maximum dimension while preserving aspect ratio.
 fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
     let (width, height) = (image.width() as f32, image.height() as f32);
     let scale = (max_dimension / width.max(height)).min(1.);
@@ -9,10 +10,27 @@ fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
     image.resize_exact(new_width, new_height, FilterType::Triangle)
 }
 
+fn apply_palette(
+    out: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
+    quantized: QuantizeResult,
+    width: u32,
+    height: u32,
+) {
+    let palette = quantized.palette();
+    let indices = quantized.indices();
+
+    for y in 0..height {
+        for x in 0..width {
+            let idx = indices[(y * width + x) as usize] as usize;
+            out.put_pixel(x, y, Rgb(palette[idx]));
+        }
+    }
+}
+
 fn quantize(
-    image: DynamicImage,
+    image: &mut DynamicImage,
     palette_size: u32,
-) -> Result<DynamicImage, zenquant::error::QuantizeError> {
+) -> Result<(), zenquant::error::QuantizeError> {
     let rgb_image = image.to_rgb8();
     let (width, height) = rgb_image.dimensions();
 
@@ -25,19 +43,17 @@ fn quantize(
     // quantize
     let config = QuantizeConfig::new(OutputFormat::Png).with_max_colors(palette_size);
     let quant = zenquant::quantize(&pixels, width as usize, height as usize, &config)?;
-    let palette = quant.palette();
-    let indices = quant.indices();
 
-    // reconstruct image
-    let mut out = ImageBuffer::new(width, height);
-    for y in 0..height {
-        for x in 0..width {
-            let idx = indices[(y * width + x) as usize] as usize;
-            out.put_pixel(x, y, Rgb(palette[idx]));
-        }
+    // modify image
+    if let DynamicImage::ImageRgb8(buffer) = image {
+        apply_palette(buffer, quant, width, height);
+    } else {
+        let mut buffer = ImageBuffer::new(width, height);
+        apply_palette(&mut buffer, quant, width, height);
+        *image = DynamicImage::ImageRgb8(buffer);
     }
 
-    Ok(DynamicImage::ImageRgb8(out))
+    Ok(())
 }
 
 pub fn process(
@@ -45,6 +61,7 @@ pub fn process(
     max_dimension: u32,
     palette_size: u32,
 ) -> Result<DynamicImage, zenquant::error::QuantizeError> {
-    let image = resize(image, max_dimension as f32);
-    quantize(image, palette_size)
+    let mut image = resize(image, max_dimension as f32);
+    quantize(&mut image, palette_size)?;
+    Ok(image)
 }

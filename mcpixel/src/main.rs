@@ -6,13 +6,13 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long, help = "Input image file path")]
+    #[arg(help = "Input image file path")]
     input: PathBuf,
-
-    #[arg(short, long, help = "Output image file path")]
+    #[arg(help = "Output image file path")]
     output: PathBuf,
 
     #[arg(
+        name = "size",
         short,
         long,
         default_value_t = 64,
