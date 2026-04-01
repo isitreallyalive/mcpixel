@@ -1,3 +1,6 @@
+use mcpixel::process;
+
 fn main() {
-    println!("Hello, world!");
+    let image = image::open("image.jpeg").unwrap();
+    process(image, 64).unwrap().save("image.png").unwrap();
 }

@@ -5,3 +5,4 @@ edition.workspace = true
 
 [dependencies]
 mcpixel = { version = "0.1.0", path = "../mcpixel" }
+image = "0.25.10"
