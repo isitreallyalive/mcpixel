@@ -2,8 +2,6 @@ use image::imageops::FilterType;
 use image::{DynamicImage, ImageBuffer, Rgb};
 use zenquant::{OutputFormat, QuantizeConfig, RGB};
 
-const PALETTE_SIZE: u32 = 256;
-
 fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
     let (width, height) = (image.width() as f32, image.height() as f32);
     let scale = (max_dimension / width.max(height)).min(1.);
@@ -11,7 +9,10 @@ fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
     image.resize_exact(new_width, new_height, FilterType::Triangle)
 }
 
-fn quantize(image: DynamicImage) -> Result<DynamicImage, zenquant::error::QuantizeError> {
+fn quantize(
+    image: DynamicImage,
+    palette_size: u32,
+) -> Result<DynamicImage, zenquant::error::QuantizeError> {
     let rgb_image = image.to_rgb8();
     let (width, height) = rgb_image.dimensions();
 
@@ -22,7 +23,7 @@ fn quantize(image: DynamicImage) -> Result<DynamicImage, zenquant::error::Quanti
         .collect();
 
     // quantize
-    let config = QuantizeConfig::new(OutputFormat::Png).with_max_colors(PALETTE_SIZE);
+    let config = QuantizeConfig::new(OutputFormat::Png).with_max_colors(palette_size);
     let quant = zenquant::quantize(&pixels, width as usize, height as usize, &config)?;
     let palette = quant.palette();
     let indices = quant.indices();
@@ -42,7 +43,8 @@ fn quantize(image: DynamicImage) -> Result<DynamicImage, zenquant::error::Quanti
 pub fn process(
     image: DynamicImage,
     max_dimension: u32,
+    palette_size: u32,
 ) -> Result<DynamicImage, zenquant::error::QuantizeError> {
     let image = resize(image, max_dimension as f32);
-    quantize(image)
+    quantize(image, palette_size)
 }
