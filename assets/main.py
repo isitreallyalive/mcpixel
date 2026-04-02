@@ -2,12 +2,13 @@ from argparse import ArgumentParser
 from collections import Counter
 from dataclasses import dataclass, asdict
 from io import BytesIO
+import json
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
-import orjson
+import msgpack
 from PIL import Image
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -90,7 +91,7 @@ def generate_report(server_jar: Path) -> dict:
             stderr=subprocess.DEVNULL,
         )
         report_path = Path(tmp) / "generated" / "reports" / "blocks.json"
-        return orjson.loads(report_path.read_bytes())
+        return json.loads(report_path.read_bytes())
 
 
 def color_frequency(img: Image.Image) -> list[tuple[int, int, int, int]]:
@@ -153,11 +154,11 @@ def build_combos(textures: dict[str, Image.Image], report: dict) -> list[Combo]:
     return combos
 
 
+
 def write_combos(combos: list[Combo], version: str) -> None:
-    out_path = BASE_DIR / f"{version}.ndjson"
+    out_path = BASE_DIR / f"{version}.msgpack"
     with open(out_path, "wb") as f:
-        for combo in combos:
-            f.write(orjson.dumps(asdict(combo)) + b"\n")
+        msgpack.pack([asdict(c) for c in combos], f)
     print(f"Wrote {len(combos)} combos to {out_path}")
 
 

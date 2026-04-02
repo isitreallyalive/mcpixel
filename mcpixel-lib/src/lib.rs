@@ -1,6 +1,12 @@
+pub use crate::block::Block;
+use crate::combos::{Combo, build_tree, find_best};
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageBuffer, Rgb};
+use std::collections::HashMap;
 use zenquant::{OutputFormat, QuantizeConfig, QuantizeResult, RGB};
+
+mod block;
+mod combos;
 
 /// Resize an image to fit within a maximum dimension while preserving aspect ratio.
 fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
@@ -63,8 +69,32 @@ pub fn process(
     image: DynamicImage,
     max_dimension: u32,
     palette_size: u32,
-) -> Result<DynamicImage, zenquant::error::QuantizeError> {
+) -> Result<Vec<Vec<Block>>, zenquant::error::QuantizeError> {
     let mut image = resize(image, max_dimension as f32);
     quantize(&mut image, palette_size)?;
-    Ok(image)
+
+    let combos: Vec<Combo> = rmp_serde::from_slice(combos::DATA).unwrap();
+    let tree = build_tree(&combos);
+
+    let rgb = image.to_rgb8();
+    let (width, height) = rgb.dimensions();
+    let mut cache: HashMap<[u8; 3], usize> = HashMap::new();
+
+    let result: Vec<Vec<Block>> = (0..height)
+        .map(|y| {
+            (0..width)
+                .map(|x| {
+                    let Rgb(key) = *rgb.get_pixel(x, y); // [u8; 3] directly from image
+                    let idx = *cache.entry(key).or_insert_with(|| {
+                        let target = key.map(|c| c as f32);
+                        find_best(target, &combos, &tree)
+                    });
+                    &combos[idx]
+                })
+                .map(Block::from)
+                .collect()
+        })
+        .collect();
+
+    Ok(result)
 }

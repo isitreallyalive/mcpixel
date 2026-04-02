@@ -38,13 +38,10 @@ fn main() -> Result<()> {
     }
 
     let image = image::open(&args.input).into_diagnostic()?;
-    let processed_image =
+    let blocks =
         process(image, args.max_dimension, args.palette_size).into_diagnostic()?;
 
-    processed_image
-        .save(&args.output)
-        .into_diagnostic()
-        .wrap_err(format!("Failed to save output image to {:?}", args.output))?;
+    println!("{:?}", blocks[0]);
 
     Ok(())
 }
