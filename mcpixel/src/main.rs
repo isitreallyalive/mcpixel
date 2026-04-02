@@ -1,6 +1,6 @@
 use clap::Parser;
 use mcpixel::process;
-use miette::{IntoDiagnostic, Result, WrapErr};
+use miette::{IntoDiagnostic, Result};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -27,6 +27,9 @@ struct Args {
         help = "Number of colors in the palette"
     )]
     palette_size: u32,
+
+    #[arg(short = 'o', long, help = "Should there be a glass overlay?")]
+    overlay: bool,
 }
 
 fn main() -> Result<()> {
@@ -39,9 +42,9 @@ fn main() -> Result<()> {
 
     let image = image::open(&args.input).into_diagnostic()?;
     let blocks =
-        process(image, args.max_dimension, args.palette_size).into_diagnostic()?;
+        process(image, args.max_dimension, args.palette_size, args.overlay).into_diagnostic()?;
 
-    println!("{:?}", blocks[0]);
+    blocks.write_file(args.output).into_diagnostic()?;
 
     Ok(())
 }

@@ -1,10 +1,10 @@
+import json
+import subprocess
 from argparse import ArgumentParser
 from collections import Counter
 from dataclasses import dataclass, asdict
 from io import BytesIO
-import json
 from pathlib import Path
-import subprocess
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
@@ -13,6 +13,7 @@ from PIL import Image
 
 BASE_DIR = Path(__file__).resolve().parent
 
+# todo: check block tags
 BAD_PROPS = {"half", "type", "facing", "layers", "attachment",
              "open", "in_wall", "extended", "hinge"}
 
@@ -20,24 +21,25 @@ BAD_SUFFIXES = (
     "_slab", "_stairs", "_wall", "_fence", "_gate",
     "_door", "_trapdoor", "_button", "_pressure_plate",
     "_sign", "_banner", "_bed", "_carpet", "_torch",
-    "_rail", "_pane", "_rod", "_chain", "_sapling",
+    "_rail", "_pane", "_rod", "_chain", "_sapling", "_propagule",
     "_flower", "_mushroom", "_coral", "_kelp", "_vine",
-    "_shoot", "_head", "_skull", "_candle",
+    "_shoot", "_head", "_skull", "_candle", "_glass"
 )
 
 BAD_EXACT = {
     "air", "cave_air", "void_air", "water", "lava", "fire",
     "soul_fire", "cobweb", "scaffolding", "ladder", "snow",
     "grass", "fern", "dead_bush", "seagrass", "bubble_column",
+    "flower_pot"
 }
 
 
 @dataclass
 class Combo:
-    b: str                  # base
-    a: list[float]          # average rgb
-    c: list[list[int]]      # colour frequency
-    o: str | None = None    # overlay
+    b: str  # base
+    a: list[float]  # average rgb
+    c: list[list[int]]  # colour frequency
+    o: str | None = None  # overlay
 
 
 def is_valid_base(block_id: str, report: dict) -> bool:
@@ -97,7 +99,7 @@ def generate_report(server_jar: Path) -> dict:
 def color_frequency(img: Image.Image) -> list[tuple[int, int, int, int]]:
     """Returns [(r, g, b, count), ...] for all sufficiently opaque pixels."""
     counts = Counter()
-    for r, g, b, a in img.getdata():
+    for r, g, b, a in img.get_flattened_data():
         if a < 128:
             continue
         counts[(r, g, b)] += 1
@@ -152,7 +154,6 @@ def build_combos(textures: dict[str, Image.Image], report: dict) -> list[Combo]:
                 combos.append(combo)
 
     return combos
-
 
 
 def write_combos(combos: list[Combo], version: str) -> None:

@@ -2,11 +2,13 @@ pub use crate::block::Block;
 use crate::combos::{Combo, build_tree, find_best};
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageBuffer, Rgb};
+use rustmatica::Litematic;
 use std::collections::HashMap;
-use zenquant::{OutputFormat, QuantizeConfig, QuantizeResult, RGB};
+use zenquant::{OutputFormat, Quality, QuantizeConfig, QuantizeResult, RGB};
 
 mod block;
 mod combos;
+mod schematic;
 
 /// Resize an image to fit within a maximum dimension while preserving aspect ratio.
 fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
@@ -14,7 +16,7 @@ fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
     let scale = max_dimension / width.max(height);
     let (new_width, new_height) = ((width * scale) as u32, (height * scale) as u32);
 
-    image.resize_exact(new_width, new_height, FilterType::Triangle)
+    image.resize_exact(new_width, new_height, FilterType::Lanczos3)
 }
 
 /// Apply a quantization palette to an image buffer in place.
@@ -50,7 +52,9 @@ fn quantize(
         .collect();
 
     // quantize
-    let config = QuantizeConfig::new(OutputFormat::Png).with_max_colors(palette_size);
+    let config = QuantizeConfig::new(OutputFormat::Png)
+        .with_max_colors(palette_size)
+        .with_quality(Quality::Best);
     let quant = zenquant::quantize(&pixels, width as usize, height as usize, &config)?;
 
     // modify image
@@ -69,11 +73,16 @@ pub fn process(
     image: DynamicImage,
     max_dimension: u32,
     palette_size: u32,
-) -> Result<Vec<Vec<Block>>, zenquant::error::QuantizeError> {
+    overlay: bool,
+) -> Result<Litematic, zenquant::error::QuantizeError> {
     let mut image = resize(image, max_dimension as f32);
     quantize(&mut image, palette_size)?;
 
-    let combos: Vec<Combo> = rmp_serde::from_slice(combos::DATA).unwrap();
+    let combos: Vec<_> = rmp_serde::from_slice::<Vec<Combo>>(combos::DATA)
+        .unwrap()
+        .into_iter()
+        .filter(|c| c.overlay.is_some() == overlay)
+        .collect();
     let tree = build_tree(&combos);
 
     let rgb = image.to_rgb8();
@@ -96,5 +105,5 @@ pub fn process(
         })
         .collect();
 
-    Ok(result)
+    Ok(schematic::create(result))
 }

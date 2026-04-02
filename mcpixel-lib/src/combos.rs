@@ -2,7 +2,7 @@ use kiddo::{ImmutableKdTree, SquaredEuclidean};
 use serde::Deserialize;
 use std::num::NonZero;
 
-pub static DATA: &[u8] = include_bytes!("../../assets/1.21.6.msgpack");
+pub static DATA: &[u8] = include_bytes!("../../assets/1.21.11.msgpack");
 
 pub type ComboTree = ImmutableKdTree<f32, 3>;
 
@@ -53,7 +53,8 @@ pub fn find_best(target: [f32; 3], combos: &[Combo], tree: &ComboTree) -> usize 
             )
         })
         .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(idx, _)| idx).unwrap_or(0)
+        .map(|(idx, _)| idx)
+        .unwrap_or(0)
 }
 
 /// Build a k-d tree containing all combos.
