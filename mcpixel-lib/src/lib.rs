@@ -1,10 +1,12 @@
-use crate::block::{Block, BlockAnalysis};
+use crate::block::Block;
+use crate::version::Version;
 use image::{GenericImageView, Rgba};
 use std::collections::HashMap;
 
 mod block;
 mod preprocess;
 pub mod schematic;
+pub mod version;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -29,12 +31,16 @@ impl Default for Configuration {
     }
 }
 
-pub struct PixelArt<'a> {
-    blocks: Vec<Vec<Block<'a>>>,
+pub struct PixelArt {
+    blocks: Vec<Vec<Block>>,
 }
 
-impl<'a> PixelArt<'a> {
-    pub fn new(image: impl AsRef<[u8]>, config: Configuration) -> Result<PixelArt<'a>, Error> {
+impl PixelArt {
+    pub fn new(
+        image: impl AsRef<[u8]>,
+        version: Version,
+        config: Configuration,
+    ) -> Result<PixelArt, Error> {
         // load image
         let image = image::load_from_memory(image.as_ref())?;
 
@@ -43,11 +49,10 @@ impl<'a> PixelArt<'a> {
         let (width, height) = image.dimensions();
 
         // convert to blocks
-        // todo: custom analyses
-        let analyses = rmp_serde::from_slice::<Vec<BlockAnalysis>>(block::DATA)
-            .unwrap()
+        let analyses = version
+            .0
             .into_iter()
-            .filter(|c| c.overlay.is_some() == config.overlay)
+            .filter(|a| a.overlay.is_some() == config.overlay)
             .collect::<Vec<_>>();
         let tree = block::build_tree(&analyses);
         let mut cache = HashMap::<[u8; 4], usize>::new();

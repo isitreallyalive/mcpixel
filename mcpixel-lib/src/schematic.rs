@@ -43,7 +43,7 @@ impl Schematic {
     }
 }
 
-impl PixelArt<'_> {
+impl PixelArt {
     /// Turn the pixel art into a schematic.
     pub fn schematic(&self) -> Schematic {
         // create
@@ -67,6 +67,7 @@ impl PixelArt<'_> {
                 // overlay
                 if let Some(overlay) = block
                     .overlay
+                    .as_ref()
                     .and_then(|o| Block::from_id(&format!("minecraft:{o}")).ok())
                 {
                     region.set_block([y as i32, 1, x as i32], &overlay).ok();

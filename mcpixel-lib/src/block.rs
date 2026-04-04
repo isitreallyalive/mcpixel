@@ -3,7 +3,17 @@ use serde::Deserialize;
 use std::cmp::Ordering;
 use std::num::NonZero;
 
-pub(crate) static DATA: &[u8] = include_bytes!("../../data/1.21.11");
+#[derive(Deserialize)]
+pub(crate) struct BlockAnalysis {
+    #[serde(rename = "b")]
+    base: String,
+    #[serde(rename = "o")]
+    pub(crate) overlay: Option<String>,
+    #[serde(rename = "a")]
+    average_rgb: [f32; 4],
+    #[serde(rename = "c")]
+    colour_freq: Vec<[u32; 5]>,
+}
 
 /// See: https://en.wikipedia.org/wiki/Color_difference#sRGB
 fn redmean_distance([r1, g1, b1, _]: [f32; 4], [r2, g2, b2, _]: [f32; 4]) -> f32 {
@@ -15,19 +25,7 @@ fn redmean_distance([r1, g1, b1, _]: [f32; 4], [r2, g2, b2, _]: [f32; 4]) -> f32
     ((2. + r_mean / 256.) * dr * dr + 4. * dg * dg + (2. + (255. - r_mean) / 256.) * db * db).sqrt()
 }
 
-#[derive(Deserialize)]
-pub(crate) struct BlockAnalysis<'a> {
-    #[serde(rename = "b")]
-    base: &'a str,
-    #[serde(rename = "o")]
-    pub(crate) overlay: Option<&'a str>,
-    #[serde(rename = "a")]
-    average_rgb: [f32; 4],
-    #[serde(rename = "c")]
-    colour_freq: Vec<[u32; 5]>,
-}
-
-impl BlockAnalysis<'_> {
+impl BlockAnalysis {
     fn score(&self) -> f32 {
         let total: u32 = self.colour_freq.iter().map(|e| e[4]).sum();
 
@@ -42,16 +40,16 @@ impl BlockAnalysis<'_> {
     }
 }
 
-pub(crate) struct Block<'a> {
-    pub(crate) base: &'a str,
-    pub(crate) overlay: Option<&'a str>,
+pub(crate) struct Block {
+    pub(crate) base: String,
+    pub(crate) overlay: Option<String>,
 }
 
-impl<'a> From<&BlockAnalysis<'a>> for Block<'a> {
-    fn from(analysis: &BlockAnalysis<'a>) -> Self {
+impl From<&BlockAnalysis> for Block {
+    fn from(analysis: &BlockAnalysis) -> Self {
         Self {
-            base: analysis.base,
-            overlay: analysis.overlay,
+            base: analysis.base.clone(),
+            overlay: analysis.overlay.clone(),
         }
     }
 }
@@ -59,12 +57,13 @@ impl<'a> From<&BlockAnalysis<'a>> for Block<'a> {
 pub(crate) type AnalysisTree = ImmutableKdTree<f32, 4>;
 
 /// Build a k-d tree containing the average RGB value of each block.
-pub(crate) fn build_tree(analyses: &[BlockAnalysis<'_>]) -> AnalysisTree {
+pub(crate) fn build_tree(analyses: &[BlockAnalysis]) -> AnalysisTree {
     let entries = analyses.iter().map(|c| c.average_rgb).collect::<Vec<_>>();
 
     ImmutableKdTree::new_from_slice(&entries)
 }
 
+/// Find the closest match in the k-d tree given a target colour.
 pub(crate) fn find_best(
     target: [f32; 4],
     analyses: &[BlockAnalysis],

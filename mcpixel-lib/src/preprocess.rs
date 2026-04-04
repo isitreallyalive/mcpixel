@@ -17,6 +17,7 @@ fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
     image.resize_exact(new_width, new_height, FilterType::Lanczos3)
 }
 
+/// Quantize the image's palette to a set number of colours.
 fn quantize(image: DynamicImage, palette_size: usize) -> RgbaImage {
     // convert to rgba8
     let rgba = image.to_rgba8();
