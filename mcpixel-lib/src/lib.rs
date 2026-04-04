@@ -1,109 +1,86 @@
-pub use crate::block::Block;
-use crate::combos::{Combo, build_tree, find_best};
-use image::imageops::FilterType;
-use image::{DynamicImage, ImageBuffer, Rgb};
-use rustmatica::Litematic;
+use crate::block::{Block, BlockAnalysis};
+use image::{GenericImageView, Rgba};
 use std::collections::HashMap;
-use zenquant::{OutputFormat, Quality, QuantizeConfig, QuantizeResult, RGB};
 
 mod block;
-mod combos;
-mod schematic;
+mod preprocess;
+pub mod schematic;
 
-/// Resize an image to fit within a maximum dimension while preserving aspect ratio.
-fn resize(image: DynamicImage, max_dimension: f32) -> DynamicImage {
-    let (width, height) = (image.width() as f32, image.height() as f32);
-    let scale = max_dimension / width.max(height);
-    let (new_width, new_height) = ((width * scale) as u32, (height * scale) as u32);
-
-    image.resize_exact(new_width, new_height, FilterType::Lanczos3)
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("image error: {0}")]
+    Image(#[from] image::ImageError),
 }
 
-/// Apply a quantization palette to an image buffer in place.
-fn apply_palette(
-    buffer: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
-    quantized: QuantizeResult,
-    width: u32,
-    height: u32,
-) {
-    let palette = quantized.palette();
-    let indices = quantized.indices();
+#[derive(Clone, Copy)]
+pub struct Configuration {
+    pub max_dimension: u32,
+    pub palette_size: u32,
+    pub overlay: bool,
+}
 
-    for y in 0..height {
-        for x in 0..width {
-            let idx = indices[(y * width + x) as usize] as usize;
-            buffer.put_pixel(x, y, Rgb(palette[idx]));
+impl Default for Configuration {
+    fn default() -> Self {
+        Self {
+            max_dimension: 64,
+            palette_size: 256,
+            overlay: false,
         }
     }
 }
 
-/// Quantize an image to a fixed number of colours.
-fn quantize(
-    image: &mut DynamicImage,
-    palette_size: u32,
-) -> Result<(), zenquant::error::QuantizeError> {
-    let rgb_image = image.to_rgb8();
-    let (width, height) = rgb_image.dimensions();
-
-    // prepare pixels for zenquant
-    let pixels: Vec<_> = rgb_image
-        .pixels()
-        .map(|p| RGB::new(p[0], p[1], p[2]))
-        .collect();
-
-    // quantize
-    let config = QuantizeConfig::new(OutputFormat::Png)
-        .with_max_colors(palette_size)
-        .with_quality(Quality::Best);
-    let quant = zenquant::quantize(&pixels, width as usize, height as usize, &config)?;
-
-    // modify image
-    if let DynamicImage::ImageRgb8(buffer) = image {
-        apply_palette(buffer, quant, width, height);
-    } else {
-        let mut buffer = ImageBuffer::new(width, height);
-        apply_palette(&mut buffer, quant, width, height);
-        *image = DynamicImage::ImageRgb8(buffer);
-    }
-
-    Ok(())
+pub struct PixelArt<'a> {
+    blocks: Vec<Vec<Block<'a>>>,
 }
 
-pub fn process(
-    image: DynamicImage,
-    max_dimension: u32,
-    palette_size: u32,
-    overlay: bool,
-) -> Result<Litematic, zenquant::error::QuantizeError> {
-    let mut image = resize(image, max_dimension as f32);
-    quantize(&mut image, palette_size)?;
+impl<'a> PixelArt<'a> {
+    pub fn new(image: impl AsRef<[u8]>, config: Configuration) -> Result<PixelArt<'a>, Error> {
+        // load image
+        let image = image::load_from_memory(image.as_ref())?;
 
-    let combos: Vec<_> = rmp_serde::from_slice::<Vec<Combo>>(combos::DATA)
-        .unwrap()
-        .into_iter()
-        .filter(|c| c.overlay.is_some() == overlay)
-        .collect();
-    let tree = build_tree(&combos);
+        // preprocess
+        let image = preprocess::run(image, &config);
+        let (width, height) = image.dimensions();
 
-    let rgb = image.to_rgb8();
-    let (width, height) = rgb.dimensions();
-    let mut cache: HashMap<[u8; 3], usize> = HashMap::new();
+        // convert to blocks
+        // todo: custom analyses
+        let analyses = rmp_serde::from_slice::<Vec<BlockAnalysis>>(block::DATA)
+            .unwrap()
+            .into_iter()
+            .filter(|c| c.overlay.is_some() == config.overlay)
+            .collect::<Vec<_>>();
+        let tree = block::build_tree(&analyses);
+        let mut cache = HashMap::<[u8; 4], usize>::new();
 
-    let result: Vec<Vec<Block>> = (0..height)
-        .map(|y| {
-            (0..width)
-                .map(|x| {
-                    let Rgb(key) = *rgb.get_pixel(x, y); // [u8; 3] directly from image
-                    let idx = *cache.entry(key).or_insert_with(|| {
-                        let target = key.map(|c| c as f32);
-                        find_best(target, &combos, &tree)
-                    });
-                    &combos[idx]
-                })
-                .map(Block::from)
-                .collect()
-        })
-        .collect();
+        let blocks: Vec<Vec<_>> = (0..height)
+            .map(|y| {
+                (0..width)
+                    .map(|x| {
+                        let Rgba(key) = *image.get_pixel(x, y);
+                        let idx = *cache.entry(key).or_insert_with(|| {
+                            block::find_best(key.map(|c| c as f32), &analyses, &tree)
+                                .unwrap_or_default()
+                        });
+                        &analyses[idx]
+                    })
+                    .map(Block::from)
+                    .collect()
+            })
+            .collect();
 
-    Ok(schematic::create(result))
+        Ok(Self { blocks })
+    }
+
+    pub fn dimensions(&self) -> (usize, usize) {
+        (
+            self.blocks.len(),
+            self.blocks.first().map(|row| row.len()).unwrap_or_default(),
+        )
+    }
+
+    pub(crate) fn has_overlay(&self) -> bool {
+        self.blocks
+            .iter()
+            .any(|row| row.iter().any(|b| b.overlay.is_some()))
+    }
 }

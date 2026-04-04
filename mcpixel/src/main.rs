@@ -1,6 +1,8 @@
 use clap::Parser;
-use mcpixel::process;
+use mcpixel::schematic::SchematicFormat;
+use mcpixel::{Configuration, PixelArt};
 use miette::{IntoDiagnostic, Result};
+use std::fs::File;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -8,25 +10,12 @@ use std::path::PathBuf;
 struct Args {
     #[arg(help = "Input image file path")]
     input: PathBuf,
-    #[arg(help = "Output image file path")]
-    output: PathBuf,
 
-    #[arg(
-        name = "size",
-        short,
-        long,
-        default_value_t = 64,
-        help = "Maximum dimension for resizing"
-    )]
-    max_dimension: u32,
+    #[arg(name = "size", short, long, help = "Maximum dimension for resizing")]
+    max_dimension: Option<u32>,
 
-    #[arg(
-        short = 'p',
-        long,
-        default_value_t = 256,
-        help = "Number of colors in the palette"
-    )]
-    palette_size: u32,
+    #[arg(short = 'p', long, help = "Number of colors in the palette")]
+    palette_size: Option<u32>,
 
     #[arg(short = 'o', long, help = "Should there be a glass overlay?")]
     overlay: bool,
@@ -40,11 +29,19 @@ fn main() -> Result<()> {
         return Err(miette::miette!("Input path {:?} is not a file", args.input));
     }
 
-    let image = image::open(&args.input).into_diagnostic()?;
-    let blocks =
-        process(image, args.max_dimension, args.palette_size, args.overlay).into_diagnostic()?;
+    // determine configuration
+    let mut config = Configuration::default();
+    args.max_dimension.map(|d| config.max_dimension = d);
+    args.palette_size.map(|p| config.palette_size = p);
+    config.overlay = args.overlay;
 
-    blocks.write_file(args.output).into_diagnostic()?;
+    let image = std::fs::read(&args.input).into_diagnostic()?;
+    let art = PixelArt::new(image, config).into_diagnostic()?;
+    let schematic = art.schematic();
+    let mut file = File::create("output.litematic").into_diagnostic()?;
+    schematic
+        .save(&mut file, SchematicFormat::Litematica)
+        .into_diagnostic()?;
 
     Ok(())
 }

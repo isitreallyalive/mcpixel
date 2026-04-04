@@ -1,40 +1,79 @@
-use crate::Block;
-use mcdata::GenericBlockState;
-use mcdata::util::BlockPos;
-use rustmatica::{Litematic, Region};
-use std::collections::HashMap;
+use crate::PixelArt;
+use mc_schem::schem::{VanillaStructureSaveOption, WorldEdit13SaveOption};
+use mc_schem::{Block, LitematicaSaveOption, Region};
+use std::io::Write;
 
-pub(crate) fn create(blocks: Vec<Vec<Block>>) -> Litematic {
-    let height = blocks.len() as i32;
-    let width = blocks.first().map_or(0, |row| row.len() as i32);
-    let mut region = Region::new(
-        "pixel_art",
-        BlockPos::new(0, 0, 0),
-        BlockPos::new(width, height, 2),
-    );
+// thin-wrapper around mc_schem
+#[non_exhaustive]
+pub struct Schematic(mc_schem::Schematic);
 
-    for (y, row) in blocks.iter().enumerate() {
-        for (x, block) in row.iter().enumerate() {
-            let x_flipped = width - 1 - x as i32;
-            let y_flipped = height - 1 - y as i32;
-            let base_state = GenericBlockState {
-                name: format!("minecraft:{}", block.base).into(),
-                properties: HashMap::new(),
-            };
-            region.set_block(BlockPos::new(x_flipped, y_flipped, 1), base_state);
+impl From<Region> for Schematic {
+    fn from(region: Region) -> Self {
+        let mut schematic = mc_schem::Schematic::new();
+        schematic.regions.push(region);
+        Self(schematic)
+    }
+}
 
-            if let Some(overlay) = &block.overlay {
-                let overlay_state = GenericBlockState {
-                    name: format!("minecraft:{}", overlay).into(),
-                    properties: HashMap::new(),
-                };
-                region.set_block(BlockPos::new(x_flipped, y_flipped, 0), overlay_state);
-            }
+/// All supported schematic formats.
+pub enum SchematicFormat {
+    Vanilla,
+    Litematica,
+    WorldEdit13,
+}
+
+impl Schematic {
+    /// Save the schematic to the given format.
+    pub fn save(
+        &self,
+        dest: &mut dyn Write,
+        format: SchematicFormat,
+    ) -> Result<(), mc_schem::error::Error> {
+        match format {
+            SchematicFormat::Vanilla => self
+                .0
+                .save_vanilla_structure_writer(dest, &VanillaStructureSaveOption::default()),
+            SchematicFormat::Litematica => self
+                .0
+                .save_litematica_writer(dest, &LitematicaSaveOption::default()),
+            SchematicFormat::WorldEdit13 => self
+                .0
+                .save_world_edit_13_writer(dest, &WorldEdit13SaveOption::default()),
         }
     }
+}
 
-    let mut schematic = Litematic::new("", "", env!("CARGO_CRATE_NAME"));
-    schematic.regions.push(region);
+impl PixelArt<'_> {
+    /// Turn the pixel art into a schematic.
+    pub fn schematic(&self) -> Schematic {
+        // create
+        let mut region = Region::new();
+        region.name = String::from("pixel_art");
 
-    schematic
+        // resize
+        let (width, height) = self.dimensions();
+        let depth = if self.has_overlay() { 2 } else { 1 } + 1;
+        region.reshape(&[height as i32, depth, width as i32]); // yzx
+
+        // populate
+        // todo: make sure it stands up
+        for (y, row) in self.blocks.iter().enumerate() {
+            for (x, block) in row.iter().enumerate() {
+                // base
+                if let Ok(base) = Block::from_id(&format!("minecraft:{}", block.base)) {
+                    region.set_block([y as i32, 0, x as i32], &base).ok();
+                }
+
+                // overlay
+                if let Some(overlay) = block
+                    .overlay
+                    .and_then(|o| Block::from_id(&format!("minecraft:{o}")).ok())
+                {
+                    region.set_block([y as i32, 1, x as i32], &overlay).ok();
+                }
+            }
+        }
+
+        region.into()
+    }
 }

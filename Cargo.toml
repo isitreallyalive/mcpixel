@@ -1,5 +1,6 @@
 [workspace]
 resolver = "3"
+default-members = ["mcpixel-lib"]
 members = ["mcpixel-lib", "mcpixel"]
 
 [workspace.package]

@@ -96,24 +96,25 @@ def generate_report(server_jar: Path) -> dict:
         return json.loads(report_path.read_bytes())
 
 
-def color_frequency(img: Image.Image) -> list[tuple[int, int, int, int]]:
-    """Returns [(r, g, b, count), ...] for all sufficiently opaque pixels."""
+def color_frequency(img: Image.Image) -> list[tuple[int, int, int, int, int]]:
+    """Returns [(r, g, b, a, count), ...] for all sufficiently opaque pixels."""
     counts = Counter()
     for r, g, b, a in img.get_flattened_data():
         if a < 128:
             continue
-        counts[(r, g, b)] += 1
-    return [(r, g, b, c) for (r, g, b), c in counts.most_common()]
+        counts[(r, g, b, a)] += 1
+    return [(r, g, b, a, c) for (r, g, b, a), c in counts.most_common()]
 
 
-def average_rgb(freq: list[tuple[int, int, int, int]]) -> tuple[float, float, float]:
-    total = sum(c for _, _, _, c in freq)
+def average_rgb(freq: list[tuple[int, int, int, int, int]]) -> tuple[float, float, float]:
+    total = sum(c for _, _, _, _, c in freq)
     if total == 0:
         return 0., 0., 0.
-    r = sum(r * c for r, _, _, c in freq) / total
-    g = sum(g * c for _, g, _, c in freq) / total
-    b = sum(b * c for _, _, b, c in freq) / total
-    return r, g, b
+    r = sum(r * c for r, _, _, _, c in freq) / total
+    g = sum(g * c for _, g, _, _, c in freq) / total
+    b = sum(b * c for _, _, b, _, c in freq) / total
+    a = sum(a * c for _, _, _, a, c in freq) / total
+    return r, g, b, a
 
 
 def composite(base: Image.Image, overlay: Image.Image) -> Image.Image:
@@ -128,7 +129,7 @@ def make_combo(base_id: str, img: Image.Image, overlay_id: str | None = None) ->
     if not freq:
         return None
     avg = average_rgb(freq)
-    return Combo(base_id, list(avg), [[r, g, b, c] for r, g, b, c in freq], overlay_id)
+    return Combo(base_id, list(avg), [[r, g, b, a, c] for r, g, b, a, c in freq], overlay_id)
 
 
 def build_combos(textures: dict[str, Image.Image], report: dict) -> list[Combo]:
