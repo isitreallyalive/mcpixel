@@ -44,6 +44,13 @@ impl Schematic {
 }
 
 impl PixelArt {
+    /// Does the pixel art have an overlay?
+    fn has_overlay(&self) -> bool {
+        self.blocks
+            .iter()
+            .any(|row| row.iter().any(|b| b.overlay.is_some()))
+    }
+
     /// Turn the pixel art into a schematic.
     pub fn schematic(&self) -> Schematic {
         // create

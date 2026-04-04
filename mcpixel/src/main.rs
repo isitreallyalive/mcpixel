@@ -67,6 +67,8 @@ fn load_version(version: &str) -> Result<Version> {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+
+    #[cfg(debug_assertions)]
     dbg!(&args);
 
     if !args.input.is_file() {
@@ -89,6 +91,9 @@ fn main() -> Result<()> {
     schematic
         .save(&mut file, SchematicFormat::Litematica)
         .into_diagnostic()?;
+
+    #[cfg(debug_assertions)]
+    dbg!(art.materials().values().sum::<usize>());
 
     Ok(())
 }

@@ -76,6 +76,7 @@ impl PixelArt {
         Ok(Self { blocks })
     }
 
+    /// The size of the pixel art in blocks.
     pub fn dimensions(&self) -> (usize, usize) {
         (
             self.blocks.len(),
@@ -83,9 +84,22 @@ impl PixelArt {
         )
     }
 
-    pub(crate) fn has_overlay(&self) -> bool {
-        self.blocks
-            .iter()
-            .any(|row| row.iter().any(|b| b.overlay.is_some()))
+    /// Calculate the materials required to build the pixel art.
+    pub fn materials(&self) -> HashMap<&str, usize> {
+        let mut materials = HashMap::new();
+
+        for row in &self.blocks {
+            for block in row {
+                // base
+                *materials.entry(block.base.as_str()).or_insert(0) += 1;
+
+                // overlay
+                if let Some(overlay) = &block.overlay {
+                    *materials.entry(overlay.as_str()).or_insert(0) += 1;
+                }
+            }
+        }
+
+        materials
     }
 }
