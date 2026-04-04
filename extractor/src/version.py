@@ -14,8 +14,12 @@ CHUNK_SIZE = 1024
 
 @dataclass
 class Version:
+    name: str
     client: Path
     server: Path
+
+    def __str__(self):
+        return self.name
 
 
 def fetch_versions(http: Session, version: str | None = None) -> dict[str, str]:
@@ -76,6 +80,6 @@ def resolve_versions(http: Session, versions: dict[str, str]) -> dict[str, Versi
         client = _fetch_jar(http, "client", version, downloads)
         server = _fetch_jar(http, "server", version, downloads)
 
-        resolved[version] = Version(client, server)
+        resolved[version] = Version(version, client, server)
 
     return resolved
