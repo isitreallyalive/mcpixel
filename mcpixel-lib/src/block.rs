@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::cmp::Ordering;
 use std::num::NonZero;
 
-pub(crate) static DATA: &[u8] = include_bytes!("../../assets/1.21.11.msgpack");
+pub(crate) static DATA: &[u8] = include_bytes!("../../data/1.21.11");
 
 /// See: https://en.wikipedia.org/wiki/Color_difference#sRGB
 fn redmean_distance([r1, g1, b1, _]: [f32; 4], [r2, g2, b2, _]: [f32; 4]) -> f32 {

@@ -11,7 +11,8 @@ from zipfile import ZipFile
 import msgpack
 from PIL import Image
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
 
 # todo: check block tags
 BAD_PROPS = {"half", "type", "facing", "layers", "attachment",
@@ -158,7 +159,7 @@ def build_combos(textures: dict[str, Image.Image], report: dict) -> list[Combo]:
 
 
 def write_combos(combos: list[Combo], version: str) -> None:
-    out_path = BASE_DIR / f"{version}.msgpack"
+    out_path = DATA_DIR / version
     with open(out_path, "wb") as f:
         msgpack.pack([asdict(c) for c in combos], f)
     print(f"Wrote {len(combos)} combos to {out_path}")
