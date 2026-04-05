@@ -12,22 +12,31 @@ struct Args {
     #[arg(help = "Input image file path")]
     input: PathBuf,
 
-    #[arg(name = "size", short, long, help = "Maximum dimension for resizing")]
+    #[arg(name = "size", short, long, help = "Maximum width/height for resizing")]
     max_dimension: Option<u32>,
 
-    #[arg(short = 'p', long, help = "Number of colors in the palette")]
+    #[arg(short = 'p', long, help = "Number of colors to quantize the image to")]
     palette_size: Option<u32>,
 
-    #[arg(short = 'o', long, help = "Should there be a glass overlay?")]
+    #[arg(short = 'g', long, help = "Gamma correction factor for brightness adjustment")]
+    gamma: Option<f32>,
+
+    #[arg(long, help = "Factor to boost image saturation")]
+    saturation: Option<f32>,
+
+    #[arg(long, help = "Apply a sharpening filter")]
+    sharpen: bool,
+
+    #[arg(short = 'o', long, help = "Include a glass overlay layer to help blend colours")]
     overlay: bool,
 
     #[arg(
         short = 'm',
         long,
-        help = "Which version of Minecraft should the pixel art be for?",
+        help = "Minecraft version target for pixel art",
         default_value = "1.21.11"
     )]
-    minecraft: String
+    minecraft: String,
 }
 
 #[cfg(not(debug_assertions))]

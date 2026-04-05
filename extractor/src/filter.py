@@ -8,8 +8,10 @@ from src.block_pb2 import PlacedBlock
 from src.proto import Hashable
 from src.version import Version
 
+# todo: refine blacklist
 SHAPE_PROPS = {"half", "type", "facing", "layers", "hinge", "shape", "part"}
-BAD_ITEMS = {"dragon_egg"}
+BAD_ITEMS = {"dragon_egg", "mycelium"}
+BAD_SUFFIXES = {"glass_pane", "_carpet", "vines", "torch"}
 
 
 def _generate_report(version: Version) -> dict:
@@ -31,6 +33,9 @@ def _is_valid_texture(block_id: str, report: dict, tags: dict[str, set[str]]) ->
     # don't allow blacklisted items
     if block_id in BAD_ITEMS:
         return False
+    for suffix in BAD_SUFFIXES:
+        if block_id.endswith(suffix):
+            return False
 
     # don't allow non-solid blocks
     non_solid = (

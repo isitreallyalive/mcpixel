@@ -22,6 +22,9 @@ pub enum Error {
 pub struct Configuration {
     pub max_dimension: u32,
     pub palette_size: u32,
+    pub gamma: f32,
+    pub saturation: f32,
+    pub sharpen: bool,
     pub overlay: bool,
 }
 
@@ -30,6 +33,9 @@ impl Default for Configuration {
         Self {
             max_dimension: 64,
             palette_size: 256,
+            gamma: 1.2,
+            saturation: 1.2,
+            sharpen: false,
             overlay: false,
         }
     }
@@ -76,7 +82,6 @@ impl PixelArt {
                         let Rgb(key) = *image.get_pixel(x, y);
                         let idx = *cache.entry(key).or_insert_with(|| {
                             block::find_best(key.map(|c| c as f32), &stats, &tree)
-                                .unwrap_or_default()
                         });
                         stats[idx].block.clone()
                     })
@@ -102,7 +107,9 @@ impl PixelArt {
         for row in &self.blocks {
             for block in row {
                 // base
-                *materials.entry(block.base.as_ref().expect("base should exist").id.as_str()).or_insert(0) += 1;
+                *materials
+                    .entry(block.base.as_ref().expect("base should exist").id.as_str())
+                    .or_insert(0) += 1;
 
                 // overlay
                 if let Some(overlay) = &block.overlay {

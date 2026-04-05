@@ -12,7 +12,7 @@ def apply_overlays(textures: dict[Hashable[PlacedBlock], Image.Image]) -> dict[
     overlays = {
         block: img
         for block, img in textures.items()
-        if block.id.endswith("_stained_glass")
+        if block.id.endswith("glass")
     }
 
     # find bases
