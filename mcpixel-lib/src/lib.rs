@@ -4,11 +4,11 @@ use image::Rgb;
 use std::collections::HashMap;
 use std::num::NonZero;
 
-mod block;
 pub(crate) mod lab;
 mod preprocess;
 pub mod schematic;
 mod smoothness;
+mod texture;
 pub mod version;
 
 pub(crate) mod proto {
@@ -27,7 +27,7 @@ pub struct Configuration {
     pub palette_size: u32,
     pub gamma: f32,
     pub saturation: f32,
-    pub sharpen: bool,
+    pub smoothness_penalty: f32,
     pub overlay: bool,
 }
 
@@ -38,7 +38,7 @@ impl Default for Configuration {
             palette_size: 256,
             gamma: 1.2,
             saturation: 1.2,
-            sharpen: false,
+            smoothness_penalty: 0.3,
             overlay: false,
         }
     }
@@ -69,7 +69,7 @@ impl PixelArt {
             .filter(|t| t.overlay.is_some() == config.overlay)
             .cloned()
             .collect::<Vec<_>>();
-        let smoothness_penalty = smoothness::penalty(&image, &textures, 0.3);
+        let smoothness_penalty = smoothness::penalty(&image, &textures, config.smoothness_penalty);
 
         // compute candidate count
         let candidate_count = NonZero::new(
@@ -78,7 +78,7 @@ impl PixelArt {
         .expect("this should always be at least 10");
 
         // convert to blocks
-        let tree = block::build_tree(&textures);
+        let tree = texture::build_tree(&textures);
         let mut cache = HashMap::<[u8; 3], usize>::new();
 
         let blocks: Vec<Vec<_>> = (0..height)
@@ -87,7 +87,7 @@ impl PixelArt {
                     .filter_map(|x| {
                         let Rgb(key) = *image.get_pixel(x, y);
                         let idx = *cache.entry(key).or_insert_with(|| {
-                            block::find_best(
+                            texture::find_best(
                                 key,
                                 &textures,
                                 &tree,

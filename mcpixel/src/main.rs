@@ -28,15 +28,15 @@ struct Args {
     #[arg(long, help = "Factor to boost image saturation")]
     saturation: Option<f32>,
 
-    #[arg(long, help = "Apply a sharpening filter")]
-    sharpen: bool,
-
     #[arg(
         short = 'o',
         long,
         help = "Include a glass overlay layer to help blend colours"
     )]
     overlay: bool,
+
+    #[arg(long = "smooth", help = "Target smoothness penalty")]
+    smoothness_penalty: Option<f32>,
 
     #[arg(
         short = 'm',
@@ -45,6 +45,22 @@ struct Args {
         default_value = "1.21.11"
     )]
     minecraft: String,
+}
+
+impl From<Args> for Configuration {
+    fn from(args: Args) -> Self {
+        let default = Self::default();
+        Self {
+            max_dimension: args.max_dimension.unwrap_or(default.max_dimension),
+            palette_size: args.palette_size.unwrap_or(default.palette_size),
+            gamma: args.gamma.unwrap_or(default.gamma),
+            saturation: args.saturation.unwrap_or(default.saturation),
+            overlay: args.overlay,
+            smoothness_penalty: args
+                .smoothness_penalty
+                .unwrap_or(default.smoothness_penalty),
+        }
+    }
 }
 
 #[cfg(not(debug_assertions))]
@@ -99,16 +115,9 @@ fn main() -> Result<()> {
         return Err(miette::miette!("Input path {:?} is not a file", args.input));
     }
 
-    // determine configuration
     let version = load_version(&args.minecraft)?;
-
-    let mut config = Configuration::default();
-    args.max_dimension.map(|d| config.max_dimension = d);
-    args.palette_size.map(|p| config.palette_size = p);
-    config.overlay = args.overlay;
-
     let image = fs::read(&args.input).into_diagnostic()?;
-    let art = PixelArt::new(image, version, config).into_diagnostic()?;
+    let art = PixelArt::new(image, version, args.into()).into_diagnostic()?;
     let materials = art.materials();
     let schematic = art.schematic(Plane::Standing);
     let mut file = fs::File::create("output.litematic").into_diagnostic()?;

@@ -61,7 +61,11 @@ pub(crate) fn find_best(
                 textures[stats_idx].score(transformed, smoothness_penalty),
             )
         })
-        .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal))
+        .min_by(|a, b| {
+            a.1.partial_cmp(&b.1)
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        })
         .map(|(idx, _)| idx)
         .unwrap_or_default()
 }
