@@ -4,9 +4,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from PIL import Image
+from src.block_pb2 import PlacedBlock
+from src.proto import Hashable
 from src.version import Version
 
 SHAPE_PROPS = {"half", "type", "facing", "layers", "hinge", "shape", "part"}
+BAD_ITEMS = {"dragon_egg"}
 
 
 def _generate_report(version: Version) -> dict:
@@ -23,6 +26,10 @@ def _is_valid_texture(block_id: str, report: dict, tags: dict[str, set[str]]) ->
     full_id = f"minecraft:{block_id}"
     entry = report.get(full_id)
     if entry is None:
+        return False
+
+    # don't allow blacklisted items
+    if block_id in BAD_ITEMS:
         return False
 
     # don't allow non-solid blocks
@@ -64,8 +71,9 @@ def _is_valid_texture(block_id: str, report: dict, tags: dict[str, set[str]]) ->
     return True
 
 
-def filter_textures(version: Version, textures: dict[str, Image.Image], tags: dict[str, set[str]]) -> dict[str, Image.Image]:
+def filter_textures(version: Version, textures: dict[Hashable[PlacedBlock], Image.Image], tags: dict[str, set[str]]) -> \
+dict[Hashable[PlacedBlock], Image.Image]:
     """Remove textures that should not be considered."""
     report = _generate_report(version)
 
-    return {block_id: img for block_id, img in textures.items() if _is_valid_texture(block_id, report, tags)}
+    return {block: img for block, img in textures.items() if _is_valid_texture(block.id, report, tags)}

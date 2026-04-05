@@ -1,6 +1,7 @@
 import argparse
 import logging
 
+from google.protobuf import json_format
 from requests import Session
 from src.block_pb2 import Version
 from src.filter import filter_textures
@@ -54,8 +55,12 @@ def main() -> None:
         logger.info(f"Computed stats for {len(stats):,} textures")
 
         output = Version(stats=stats)
+
         with open(DATA_DIR / version.name, "wb") as f:
             f.write(output.SerializeToString())
+        with open(DATA_DIR / f"{version.name}.json", "w") as f:
+            f.write(json_format.MessageToJson(output, indent=1, always_print_fields_with_no_presence=True))
+
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,5 @@
 use crate::PixelArt;
+use crate::proto::PlacedBlock;
 use mc_schem::schem::{VanillaStructureSaveOption, WorldEdit13SaveOption};
 use mc_schem::{Block, LitematicaSaveOption, Region};
 use std::io::Write;
@@ -13,6 +14,12 @@ impl From<Region> for Schematic {
         schematic.regions.push(region);
         Self(schematic)
     }
+}
+
+/// The plane to render the schematic on.
+pub enum Plane {
+    Standing,
+    Flat,
 }
 
 /// All supported schematic formats.
@@ -43,6 +50,21 @@ impl Schematic {
     }
 }
 
+fn get_block(found: &PlacedBlock, plane: &Plane) -> Option<Block> {
+    let mut block = Block::from_id(&format!("minecraft:{}", found.id)).ok()?;
+
+    // set axis
+    let axis = match (plane, found.top) {
+        (Plane::Standing, false) => 'y',
+        (Plane::Standing, true) => 'x',
+        (Plane::Flat, false) => 'x',
+        (Plane::Flat, true) => 'y',
+    };
+    block.attributes.insert("axis".into(), axis.into());
+
+    Some(block)
+}
+
 impl PixelArt {
     /// Does the pixel art have an overlay?
     fn has_overlay(&self) -> bool {
@@ -52,7 +74,7 @@ impl PixelArt {
     }
 
     /// Turn the pixel art into a schematic.
-    pub fn schematic(&self) -> Schematic {
+    pub fn schematic(&self, plane: Plane) -> Schematic {
         // create
         let mut region = Region::new();
         region.name = String::from("pixel_art");
@@ -60,24 +82,42 @@ impl PixelArt {
         // resize
         let (width, height) = self.dimensions();
         let depth = if self.has_overlay() { 2 } else { 1 } + 1;
-        region.reshape(&[height as i32, depth, width as i32]); // yzx
 
         // populate
-        // todo: make sure it stands up
-        for (y, row) in self.blocks.iter().enumerate() {
-            for (x, block) in row.iter().enumerate() {
-                // base
-                if let Ok(base) = Block::from_id(&format!("minecraft:{}", block.base)) {
-                    region.set_block([y as i32, 0, x as i32], &base).ok();
+        match plane {
+            // stood up
+            Plane::Standing => {
+                // x=width, y=depth, z=height
+                region.reshape(&[depth, height as i32, width as i32]); // yzx
+                for (y, row) in self.blocks.iter().enumerate() {
+                    let y = (height - 1 - y) as i32; // flip
+
+                    for (z, block) in row.iter().enumerate() {
+                        let z = (width - 1 - z) as i32; // flip
+
+                        if let Some(base) = block.base.as_ref().and_then(|b| get_block(b, &plane)) {
+                            region.set_block([0, y as i32, z as i32], &base).ok();
+                        }
+                        if let Some(overlay) = block.overlay.as_ref().and_then(|b| get_block(b, &plane)) {
+                            region.set_block([1, y as i32, z as i32], &overlay).ok();
+                        }
+                    }
                 }
 
-                // overlay
-                if let Some(overlay) = block
-                    .overlay
-                    .as_ref()
-                    .and_then(|o| Block::from_id(&format!("minecraft:{o}")).ok())
-                {
-                    region.set_block([y as i32, 1, x as i32], &overlay).ok();
+            }
+            // laying down
+            Plane::Flat => {
+                // x=width, y=height, z=depth
+                region.reshape(&[height as i32, depth, width as i32]); // yzx
+                for (x, row) in self.blocks.iter().enumerate() {
+                    for (z, block) in row.iter().enumerate() {
+                        if let Some(base) = block.base.as_ref().and_then(|b| get_block(b, &plane)) {
+                            region.set_block([x as i32, 0, z as i32], &base).ok();
+                        }
+                        if let Some(overlay) = block.overlay.as_ref().and_then(|b| get_block(b, &plane)) {
+                            region.set_block([x as i32, 1, z as i32], &overlay).ok();
+                        }
+                    }
                 }
             }
         }

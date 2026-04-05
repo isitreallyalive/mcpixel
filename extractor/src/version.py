@@ -7,7 +7,9 @@ from zipfile import ZipFile
 import orjson
 from PIL import Image
 from requests import Session
+from src.block_pb2 import PlacedBlock
 from src.path import DOWNLOAD_DIR
+from src.proto import Hashable
 from tqdm import tqdm
 
 Side = Literal["server", "client"]
@@ -21,6 +23,7 @@ class Version:
     name: str
     client: Path
     server: Path
+
 
 def fetch_versions(http: Session, version: str | None = None) -> dict[str, str]:
     """Returns a dictionary mapping versions of Minecraft to a URL to their corresponding client.json"""
@@ -41,6 +44,7 @@ def fetch_versions(http: Session, version: str | None = None) -> dict[str, str]:
         return {version: versions[version]} if version in versions else {}
 
     return versions
+
 
 def _fetch_jar(http: Session, side: Side, version: str, downloads: dict[str, dict[str, str]]) -> Path:
     """Fetch a Minecraft version's jar."""
@@ -84,7 +88,8 @@ def resolve_versions(http: Session, versions: dict[str, str]) -> list[Version]:
 
     return resolved
 
-def extract_version(version: Version) -> tuple[dict[str, Image.Image], dict[str, set[str]]]:
+
+def extract_version(version: Version) -> tuple[dict[Hashable[PlacedBlock], Image.Image], dict[str, set[str]]]:
     """Extract textures and tag membership from a client jar."""
     textures = {}
     tags = {}
@@ -104,7 +109,14 @@ def extract_version(version: Version) -> tuple[dict[str, Image.Image], dict[str,
                 if h > w:
                     image = image.crop((0, 0, w, h))
 
-                textures[name] = image
+                # is it a _top texture?
+                if name.endswith("top"):
+                    name = name.strip("_top")
+                    top = True
+                else:
+                    top = False
+
+                textures[Hashable(PlacedBlock(id=name, top=top))] = image
 
             # handle tags
             if path.startswith("data/minecraft/tags/block/") and path.endswith(".json"):
@@ -114,6 +126,5 @@ def extract_version(version: Version) -> tuple[dict[str, Image.Image], dict[str,
                     for v in data.get("values", [])
                     if isinstance(v, str)
                 }
-
 
     return textures, tags

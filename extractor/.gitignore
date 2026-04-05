@@ -2,3 +2,4 @@
 .downloads
 *_pb2.py
 blocks.json
+__pycache__

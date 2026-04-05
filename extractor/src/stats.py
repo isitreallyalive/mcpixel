@@ -1,14 +1,15 @@
 from collections import Counter
 
 from PIL import Image
-from src.block_pb2 import Block, BlockStats, Weight, Rgb
+from src.block_pb2 import Block, BlockStats, PlacedBlock, Weight, Rgb
+from src.proto import Hashable
 
 
 def _colour_frequency(image: Image.Image) -> list[tuple[tuple[float, float, float], int]]:
     """Returns list of ((r, g, b), count)"""
     freq = Counter()
     for rgba in image.get_flattened_data():
-        rgb = tuple(rgba[:3]) # drop alpha
+        rgb = tuple(rgba[:3])  # drop alpha
         freq[rgb] += 1
     return list(freq.items())
 
@@ -36,7 +37,8 @@ def _average_rgb(freq: list[tuple[tuple[float, float, float], int]]) -> Rgb:
     return Rgb(r=r, g=g, b=b)
 
 
-def compute_stats(textures: dict[tuple[str, str | None], Image.Image]) -> list[BlockStats]:
+def compute_stats(textures: dict[tuple[Hashable[PlacedBlock], Hashable[PlacedBlock] | None], Image.Image]) -> list[
+    BlockStats]:
     stats = []
 
     for (base, overlay), texture in textures.items():
@@ -44,6 +46,7 @@ def compute_stats(textures: dict[tuple[str, str | None], Image.Image]) -> list[B
         average = _average_rgb(freq)
         weights = _normalise(freq)
 
-        stats.append(BlockStats(block=Block(base=base, overlay=overlay), average=average, weights=weights))
+        stats.append(BlockStats(block=Block(base=base.get_proto(), overlay=overlay.get_proto() if overlay else None),
+                                average=average, weights=weights))
 
     return stats

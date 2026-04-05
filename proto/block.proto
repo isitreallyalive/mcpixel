@@ -2,9 +2,14 @@ syntax = "proto3";
 
 package block;
 
+message PlacedBlock {
+  string id = 1;
+  bool top = 2;
+}
+
 message Block {
-  string base = 1;
-  optional string overlay = 2;
+  PlacedBlock base = 1;
+  optional PlacedBlock overlay = 2;
 }
 
 message Rgb {

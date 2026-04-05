@@ -1,5 +1,5 @@
 use clap::Parser;
-use mcpixel::schematic::SchematicFormat;
+use mcpixel::schematic::{Plane, SchematicFormat};
 use mcpixel::version::Version;
 use mcpixel::{Configuration, PixelArt};
 use miette::{IntoDiagnostic, Result};
@@ -27,7 +27,7 @@ struct Args {
         help = "Which version of Minecraft should the pixel art be for?",
         default_value = "1.21.11"
     )]
-    minecraft: String,
+    minecraft: String
 }
 
 #[cfg(not(debug_assertions))]
@@ -92,7 +92,7 @@ fn main() -> Result<()> {
 
     let image = fs::read(&args.input).into_diagnostic()?;
     let art = PixelArt::new(image, version, config).into_diagnostic()?;
-    let schematic = art.schematic();
+    let schematic = art.schematic(Plane::Standing);
     let mut file = fs::File::create("output.litematic").into_diagnostic()?;
 
     schematic

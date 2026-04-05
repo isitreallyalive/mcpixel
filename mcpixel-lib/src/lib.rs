@@ -102,11 +102,11 @@ impl PixelArt {
         for row in &self.blocks {
             for block in row {
                 // base
-                *materials.entry(block.base.as_str()).or_insert(0) += 1;
+                *materials.entry(block.base.as_ref().expect("base should exist").id.as_str()).or_insert(0) += 1;
 
                 // overlay
                 if let Some(overlay) = &block.overlay {
-                    *materials.entry(overlay.as_str()).or_insert(0) += 1;
+                    *materials.entry(overlay.id.as_str()).or_insert(0) += 1;
                 }
             }
         }
