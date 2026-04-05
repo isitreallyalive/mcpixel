@@ -66,7 +66,7 @@ fn load_version(version: &str) -> Result<Version> {
     // read the cache/download the file in release
     // todo: compare checksum for updates
     #[cfg(not(debug_assertions))]
-    let data = if let Some(dirs) = ProjectDirs::from("dev", "newty", "mcpixel") {
+    let data = if let Some(dirs) = directories::ProjectDirs::from("dev", "newty", "mcpixel") {
         // find cache directory
         let cache = dirs.cache_dir();
         fs::create_dir_all(cache).into_diagnostic()?;

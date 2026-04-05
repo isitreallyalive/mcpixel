@@ -22,7 +22,7 @@ CHUNK_SIZE = 1024
 class Version:
     name: str
     client: Path
-    server: Path
+    server: Path | None = None
 
 
 def fetch_versions(http: Session, version: str | None = None) -> dict[str, str]:
@@ -46,13 +46,16 @@ def fetch_versions(http: Session, version: str | None = None) -> dict[str, str]:
     return versions
 
 
-def _fetch_jar(http: Session, side: Side, version: str, downloads: dict[str, dict[str, str]]) -> Path:
+def _fetch_jar(http: Session, side: Side, version: str, downloads: dict[str, dict[str, str]]) -> Path | None:
     """Fetch a Minecraft version's jar."""
     path = DOWNLOAD_DIR / f"{version}.{side}.jar"
 
     # if it doesn't already exist, download it
     if not path.exists():
         download_url = downloads.get(side, {}).get("url")
+
+        if download_url is None:
+            return None
 
         # download the jar
         with http.get(download_url, stream=True) as res:
@@ -84,7 +87,8 @@ def resolve_versions(http: Session, versions: dict[str, str]) -> list[Version]:
         client = _fetch_jar(http, "client", version, downloads)
         server = _fetch_jar(http, "server", version, downloads)
 
-        resolved.append(Version(version, client, server))
+        if client is not None:
+            resolved.append(Version(version, client, server))
 
     return resolved
 
@@ -94,12 +98,16 @@ def extract_version(version: Version) -> tuple[dict[Hashable[PlacedBlock], Image
     textures = {}
     tags = {}
 
-    with ZipFile(version.client, "r") as jar:
+    with (ZipFile(version.client, "r") as jar):
         for path in jar.namelist():
             name = Path(path).stem
 
             # handle textures
-            if path.startswith("assets/minecraft/textures/block/") and path.endswith(".png"):
+            if (
+                    path.startswith("assets/minecraft/textures/block/")  # 1.13+
+                    or path.startswith("assets/minecraft/textures/blocks/") # 1.6+
+                or path.startswith("textures/blocks/")
+            ) and path.endswith(".png"):
                 # read the texture
                 data = jar.read(path)
                 image = Image.open(BytesIO(data)).convert("RGBA")
@@ -119,7 +127,11 @@ def extract_version(version: Version) -> tuple[dict[Hashable[PlacedBlock], Image
                 textures[Hashable(PlacedBlock(id=name, top=top))] = image
 
             # handle tags
-            if path.startswith("data/minecraft/tags/block/") and path.endswith(".json"):
+
+            if (
+                    path.startswith("data/minecraft/tags/block/")  # 1.21+
+                    or path.startswith("data/minecraft/tags/blocks/")
+            ) and path.endswith(".json"):
                 data = orjson.loads(jar.read(path))
                 tags[name] = {
                     v.lstrip("#").split(":")[1]

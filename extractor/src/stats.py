@@ -48,6 +48,31 @@ def _average_lab(freq: list[tuple[tuple[float, float, float], int]]) -> Lab:
     return Lab(l=float(l), a=float(a), b=float(b))
 
 
+def _smoothness(image: Image.Image) -> float:
+    # ensure RGB
+    img = image.convert("RGB")
+    arr = np.asarray(img, dtype=np.float32) / 255.0  # (H, W, 3)
+
+    # convert to Lab
+    lab = skcolor.rgb2lab(arr)  # (H, W, 3)
+
+    # horizontal differences
+    dx = lab[:, 1:, :] - lab[:, :-1, :]
+    # vertical differences
+    dy = lab[1:, :, :] - lab[:-1, :, :]
+
+    # squared distances
+    dx2 = np.sum(dx * dx, axis=2)
+    dy2 = np.sum(dy * dy, axis=2)
+
+    total = dx2.sum() + dy2.sum()
+    count = dx2.size + dy2.size
+
+    if count == 0:
+        return 0.0
+
+    return float(total / count)
+
 def compute_stats(textures: dict[tuple[Hashable[PlacedBlock], Hashable[PlacedBlock] | None], Image.Image]) -> list[
     BlockStats]:
     stats = []
@@ -56,10 +81,12 @@ def compute_stats(textures: dict[tuple[Hashable[PlacedBlock], Hashable[PlacedBlo
         freq = _colour_frequency(texture)
         weights = _normalise(freq)
         average = _average_lab(freq)
+        smoothness = _smoothness(texture)
 
         stats.append(BlockStats(
             block=Block(base=base.get_proto(), overlay=overlay.get_proto() if overlay else None),
             average=average,
+            smoothness=smoothness,
             weights=weights,
         ))
 

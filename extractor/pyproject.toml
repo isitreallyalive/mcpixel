@@ -9,5 +9,6 @@ dependencies = [
     "protobuf>=7.34.1",
     "requests>=2.33.1",
     "scikit-image>=0.26.0",
+    "semver>=3.0.4",
     "tqdm>=4.67.3",
 ]

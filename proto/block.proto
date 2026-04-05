@@ -26,7 +26,8 @@ message Weight {
 message BlockStats {
   Block block = 1;
   Lab average = 2;
-  repeated Weight weights = 3;
+  float smoothness = 3;
+  repeated Weight weights = 4;
 }
 
 message Version {

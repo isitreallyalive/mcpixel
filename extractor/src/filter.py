@@ -1,12 +1,17 @@
 import json
+import re
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import semver
 
 from PIL import Image
 from src.block_pb2 import PlacedBlock
 from src.proto import Hashable
 from src.version import Version
+
+NO_REPORT = semver.Version.parse("1.17.1")
 
 # todo: refine blacklist
 SHAPE_PROPS = {"half", "type", "facing", "layers", "hinge", "shape", "part"}
@@ -15,21 +20,31 @@ BAD_ITEMS = {"dragon_egg", "mycelium", "conduit", "flower_pot", "frogspawn", "te
 BAD_SUFFIXES = {"glass_pane", "carpet", "vines", "torch", "lantern", "_grate"}
 
 
-def _generate_report(version: Version) -> dict:
+def _generate_report(version: Version) -> dict | None:
     with TemporaryDirectory() as tmp:
         subprocess.run(
             ["java", "-DbundlerMainClass=net.minecraft.data.Main", "-jar", str(version.server.resolve()), "--reports"],
             cwd=tmp, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         report_path = Path(tmp) / "generated" / "reports" / "blocks.json"
+        if not report_path.exists():
+            return None
         return json.loads(report_path.read_bytes())
 
 
-def _is_valid_texture(block_id: str, report: dict, tags: dict[str, set[str]]) -> bool:
-    # make sure the block exists
-    full_id = f"minecraft:{block_id}"
-    entry = report.get(full_id)
-    if entry is None:
-        return False
+def _is_valid_texture(block_id: str, report: dict | None, tags: dict[str, set[str]]) -> bool:
+    # report doesn't exist pre-1.18
+    # can anything be done to refine the data for these versions?
+    if report is not None:
+        # make sure the block exists
+        full_id = f"minecraft:{block_id}"
+        entry = report.get(full_id)
+        if entry is None:
+            return False
+
+        # don't allow shape-variant blocks
+        props = (entry or {}).get("properties", {})
+        if SHAPE_PROPS & props.keys():
+            return False
 
     # don't allow blacklisted items
     if block_id in BAD_ITEMS:
@@ -72,21 +87,22 @@ def _is_valid_texture(block_id: str, report: dict, tags: dict[str, set[str]]) ->
 
     if block_id in non_solid:
         return False
-
-    # don't allow shape-variant blocks
-    props = (entry or {}).get("properties", {})
-    if SHAPE_PROPS & props.keys():
-        return False
-
-    if "flower" in block_id:
-        print(block_id)
-
     return True
+
+
+def _parse_version(v: str) -> semver.Version:
+    # strip prerelease/build metadata (e.g. -pre1, -rc1)
+    v = re.split(r"[-+]", v)[0]
+
+    parts = v.split(".")
+    parts += ["0"] * (3 - len(parts))  # pad to 3 components
+
+    return semver.Version.parse(".".join(parts[:3]))
 
 
 def filter_textures(version: Version, textures: dict[Hashable[PlacedBlock], Image.Image], tags: dict[str, set[str]]) -> \
         dict[Hashable[PlacedBlock], Image.Image]:
     """Remove textures that should not be considered."""
-    report = _generate_report(version)
+    report = _generate_report(version) if _parse_version(version.name) > NO_REPORT else None
 
     return {block: img for block, img in textures.items() if _is_valid_texture(block.id, report, tags)}

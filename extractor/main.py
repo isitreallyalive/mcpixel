@@ -1,3 +1,5 @@
+# todo: support pre-1.5 terrain.png
+
 import argparse
 import logging
 
@@ -9,6 +11,7 @@ from src.path import DATA_DIR
 from src.stats import compute_stats
 from src.texture import apply_overlays
 from src.version import fetch_versions, resolve_versions, extract_version
+
 
 
 def get_logger() -> logging.Logger:
@@ -27,6 +30,7 @@ def get_http() -> Session:
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", "-v", help="The version of Minecraft to fetch data for")
+    parser.add_argument("--overwrite", "-o", help="Overwrite existing files")
 
     return parser.parse_args()
 
@@ -42,6 +46,10 @@ def main() -> None:
     versions = resolve_versions(http, versions)
 
     for version in versions:
+        out_path = DATA_DIR / version.name
+        if not args.overwrite and out_path.exists():
+            continue
+
         textures, tags = extract_version(version)
         logger.info(f"Extracted {len(textures):,} textures and {len(tags):,} tags for version {version.name}")
 
@@ -56,7 +64,7 @@ def main() -> None:
 
         output = Version(stats=stats)
 
-        with open(DATA_DIR / version.name, "wb") as f:
+        with open(out_path, "wb") as f:
             f.write(output.SerializeToString())
         with open(DATA_DIR / f"{version.name}.json", "w") as f:
             f.write(json_format.MessageToJson(output, indent=1, always_print_fields_with_no_presence=True))
