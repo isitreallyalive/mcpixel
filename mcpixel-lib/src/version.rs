@@ -1,13 +1,16 @@
-use crate::block::BlockAnalysis;
+use crate::proto::BlockStats;
+use prost::Message;
+use prost::bytes::Buf;
 
-#[non_exhaustive]
-pub struct Version(pub(crate) Vec<BlockAnalysis>);
+pub struct Version(crate::proto::Version);
 
-impl TryFrom<Vec<u8>> for Version {
-    type Error = rmp_serde::decode::Error;
+impl Version {
+    pub fn read(buf: impl Buf) -> Result<Self, prost::DecodeError> {
+        let version: crate::proto::Version = crate::proto::Version::decode(buf)?;
+        Ok(Self(version))
+    }
 
-    fn try_from(data: Vec<u8>) -> Result<Self, Self::Error> {
-        let analyses: Vec<BlockAnalysis> = rmp_serde::from_slice(&data)?;
-        Ok(Self(analyses))
+    pub(crate) fn stats(&self) -> &Vec<BlockStats> {
+        &self.0.stats
     }
 }

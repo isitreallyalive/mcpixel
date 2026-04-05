@@ -1,5 +1,4 @@
 use clap::Parser;
-use directories::ProjectDirs;
 use mcpixel::schematic::SchematicFormat;
 use mcpixel::version::Version;
 use mcpixel::{Configuration, PixelArt};
@@ -31,6 +30,7 @@ struct Args {
     minecraft: String,
 }
 
+#[cfg(not(debug_assertions))]
 fn download_version(version: &str) -> Result<Vec<u8>> {
     ureq::get(format!(
         "https://github.com/isitreallyalive/mcpixel/raw/refs/heads/main/data/{version}"
@@ -42,6 +42,13 @@ fn download_version(version: &str) -> Result<Vec<u8>> {
 
 /// Load version data.
 fn load_version(version: &str) -> Result<Version> {
+    // read from disk in debug
+    #[cfg(debug_assertions)]
+    let data = fs::read(format!("./data/{version}")).into_diagnostic()?;
+
+    // read the cache/download the file in release
+    // todo: compare checksum for updates
+    #[cfg(not(debug_assertions))]
     let data = if let Some(dirs) = ProjectDirs::from("dev", "newty", "mcpixel") {
         // find cache directory
         let cache = dirs.cache_dir();
@@ -62,7 +69,7 @@ fn load_version(version: &str) -> Result<Version> {
         download_version(version)?
     };
 
-    Ok(Version::try_from(data).into_diagnostic()?)
+    Ok(Version::read(&data[..]).into_diagnostic()?)
 }
 
 fn main() -> Result<()> {

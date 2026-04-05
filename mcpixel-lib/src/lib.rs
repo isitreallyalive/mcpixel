@@ -1,12 +1,17 @@
-use crate::block::Block;
+use crate::proto::Block;
 use crate::version::Version;
-use image::{GenericImageView, Rgba};
+use image::Rgb;
+use lab::Lab;
 use std::collections::HashMap;
 
 mod block;
 mod preprocess;
 pub mod schematic;
 pub mod version;
+
+pub(crate) mod proto {
+    include!(concat!(env!("OUT_DIR"), "/block.rs"));
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -49,26 +54,32 @@ impl PixelArt {
         let (width, height) = image.dimensions();
 
         // convert to blocks
-        let analyses = version
-            .0
-            .into_iter()
-            .filter(|a| a.overlay.is_some() == config.overlay)
+        let stats = version
+            .stats()
+            .iter()
+            .filter(|s| {
+                s.block
+                    .as_ref()
+                    .expect("block is missing for this entry")
+                    .overlay
+                    .is_some()
+                    == config.overlay
+            })
+            .cloned()
             .collect::<Vec<_>>();
-        let tree = block::build_tree(&analyses);
-        let mut cache = HashMap::<[u8; 4], usize>::new();
+        let tree = block::build_tree(&stats);
+        let mut cache = HashMap::<[u8; 3], usize>::new();
 
         let blocks: Vec<Vec<_>> = (0..height)
             .map(|y| {
                 (0..width)
-                    .map(|x| {
-                        let Rgba(key) = *image.get_pixel(x, y);
+                    .filter_map(|x| {
+                        let Rgb(key) = *image.get_pixel(x, y);
                         let idx = *cache.entry(key).or_insert_with(|| {
-                            block::find_best(key.map(|c| c as f32), &analyses, &tree)
-                                .unwrap_or_default()
+                            block::find_best(Lab::from_rgb(&key), &stats, &tree).unwrap_or_default()
                         });
-                        &analyses[idx]
+                        stats[idx].block.clone()
                     })
-                    .map(Block::from)
                     .collect()
             })
             .collect();

@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package block;
+
 message Block {
   string base = 1;
   optional string overlay = 2;
