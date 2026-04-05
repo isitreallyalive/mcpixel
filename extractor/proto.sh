@@ -1,0 +1,1 @@
+protoc --python_out=src --proto_path=../proto block.proto

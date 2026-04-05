@@ -2,6 +2,8 @@ import argparse
 import logging
 
 from requests import Session
+from src.block_pb2 import Version
+from src.path import DATA_DIR
 from src.stats import compute_stats
 from src.texture import extract_textures, filter_textures, apply_overlays
 from src.version import fetch_versions, resolve_versions
@@ -49,6 +51,10 @@ def main() -> None:
 
         stats = compute_stats(textures)
         logger.info(f"Computed stats for {len(stats):,} textures")
+
+        output = Version(stats=stats)
+        with open(DATA_DIR / version.name, "wb") as f:
+            f.write(output.SerializeToString())
 
 if __name__ == "__main__":
     main()
