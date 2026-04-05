@@ -45,6 +45,12 @@ struct Args {
         default_value = "1.21.11"
     )]
     minecraft: String,
+
+    #[arg(
+        long,
+        help = "Scale rectangular images to fit max_dimension (may distort). If false, maintains aspect ratio"
+    )]
+    scale_to_fit: bool,
 }
 
 impl From<Args> for Configuration {
@@ -59,6 +65,7 @@ impl From<Args> for Configuration {
             smoothness_penalty: args
                 .smoothness_penalty
                 .unwrap_or(default.smoothness_penalty),
+            scale_to_fit: args.scale_to_fit,
         }
     }
 }

@@ -29,17 +29,19 @@ pub struct Configuration {
     pub saturation: f32,
     pub smoothness_penalty: f32,
     pub overlay: bool,
+    pub scale_to_fit: bool,
 }
 
 impl Default for Configuration {
     fn default() -> Self {
         Self {
-            max_dimension: 64,
+            max_dimension: 32,
             palette_size: 256,
             gamma: 1.2,
             saturation: 1.2,
             smoothness_penalty: 0.3,
             overlay: false,
+            scale_to_fit: false,
         }
     }
 }
@@ -109,12 +111,11 @@ impl PixelArt {
         })
     }
 
-    /// The size of the pixel art in blocks.
+    /// The size of the pixel art in blocks (width, height).
     pub fn dimensions(&self) -> (usize, usize) {
-        (
-            self.blocks.len(),
-            self.blocks.first().map(|row| row.len()).unwrap_or_default(),
-        )
+        let height = self.blocks.len();
+        let width = self.blocks.first().map(|row| row.len()).unwrap_or_default();
+        (width, height)
     }
 
     /// Calculate the materials required to build the pixel art.

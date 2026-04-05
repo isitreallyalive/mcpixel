@@ -4,7 +4,7 @@ use image::imageops::FilterType;
 use image::{DynamicImage, ImageBuffer, Rgb, RgbImage, RgbaImage};
 
 pub(crate) fn run(image: DynamicImage, config: &Configuration) -> RgbImage {
-    let mut image = resize(image, config.max_dimension as f32);
+    let mut image = resize(image, config.max_dimension as f32, config.scale_to_fit);
     boost_saturation(&mut image, config.gamma, config.saturation);
     let image = quantize(image, config.palette_size as usize);
     #[cfg(debug_assertions)]
@@ -12,15 +12,39 @@ pub(crate) fn run(image: DynamicImage, config: &Configuration) -> RgbImage {
     image
 }
 
-/// Resize an image to fit within a maximum dimension while preserving aspect ratio.
-fn resize(image: DynamicImage, max_dimension: f32) -> RgbaImage {
+/// Resize an image to a maximum dimension.
+fn resize(image: DynamicImage, max_dimension: f32, scale_to_fit: bool) -> RgbaImage {
     let (width, height) = (image.width() as f32, image.height() as f32);
-    let scale = max_dimension / width.max(height);
-    let (new_width, new_height) = ((width * scale) as u32, (height * scale) as u32);
 
-    image
-        .resize_exact(new_width, new_height, FilterType::Lanczos3)
-        .to_rgba8()
+    if scale_to_fit {
+        // scale to fit larger dimension (may distort aspect ratio)
+        let scale = max_dimension / width.max(height);
+        let (new_width, new_height) = ((width * scale) as u32, (height * scale) as u32);
+
+        image
+            .resize_exact(new_width, new_height, FilterType::Lanczos3)
+            .to_rgba8()
+    } else {
+        // scale to fit within a square
+        let scale = max_dimension / width.max(height);
+        let (scaled_width, scaled_height) = ((width * scale) as u32, (height * scale) as u32);
+        let size = max_dimension as u32;
+
+        // create a square canvas and centre the image
+        let mut canvas = RgbaImage::new(size, size);
+
+        // calculate offset to centre the image
+        let x_offset = (size - scaled_width) / 2;
+        let y_offset = (size - scaled_height) / 2;
+
+        // resize image and place it centered on the canvas
+        let resized = image
+            .resize_exact(scaled_width, scaled_height, FilterType::Lanczos3)
+            .to_rgba8();
+        image::imageops::overlay(&mut canvas, &resized, x_offset.into(), y_offset.into());
+
+        canvas
+    }
 }
 
 /// Boost the saturation of an image.
