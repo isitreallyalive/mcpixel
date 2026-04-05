@@ -10,8 +10,9 @@ from src.version import Version
 
 # todo: refine blacklist
 SHAPE_PROPS = {"half", "type", "facing", "layers", "hinge", "shape", "part"}
-BAD_ITEMS = {"dragon_egg", "mycelium"}
-BAD_SUFFIXES = {"glass_pane", "_carpet", "vines", "torch"}
+BAD_ITEMS = {"dragon_egg", "mycelium", "conduit", "flower_pot", "frogspawn", "test_instance_block", "daylight_detector",
+             "cake", "enchanting_table", "scaffolding"}
+BAD_SUFFIXES = {"glass_pane", "carpet", "vines", "torch", "lantern", "_grate"}
 
 
 def _generate_report(version: Version) -> dict:
@@ -63,6 +64,10 @@ def _is_valid_texture(block_id: str, report: dict, tags: dict[str, set[str]]) ->
             | tags.get("tall_flowers", set())
             | tags.get("standing_signs", set())
             | tags.get("wall_signs", set())
+            | tags.get("chains", set())
+            | tags.get("bars", set())
+            | tags.get("leaves", set())
+            | tags.get("corals", set())
     )
 
     if block_id in non_solid:
@@ -73,11 +78,14 @@ def _is_valid_texture(block_id: str, report: dict, tags: dict[str, set[str]]) ->
     if SHAPE_PROPS & props.keys():
         return False
 
+    if "flower" in block_id:
+        print(block_id)
+
     return True
 
 
 def filter_textures(version: Version, textures: dict[Hashable[PlacedBlock], Image.Image], tags: dict[str, set[str]]) -> \
-dict[Hashable[PlacedBlock], Image.Image]:
+        dict[Hashable[PlacedBlock], Image.Image]:
     """Remove textures that should not be considered."""
     report = _generate_report(version)
 

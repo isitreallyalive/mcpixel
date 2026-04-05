@@ -18,7 +18,11 @@ struct Args {
     #[arg(short = 'p', long, help = "Number of colors to quantize the image to")]
     palette_size: Option<u32>,
 
-    #[arg(short = 'g', long, help = "Gamma correction factor for brightness adjustment")]
+    #[arg(
+        short = 'g',
+        long,
+        help = "Gamma correction factor for brightness adjustment"
+    )]
     gamma: Option<f32>,
 
     #[arg(long, help = "Factor to boost image saturation")]
@@ -27,7 +31,11 @@ struct Args {
     #[arg(long, help = "Apply a sharpening filter")]
     sharpen: bool,
 
-    #[arg(short = 'o', long, help = "Include a glass overlay layer to help blend colours")]
+    #[arg(
+        short = 'o',
+        long,
+        help = "Include a glass overlay layer to help blend colours"
+    )]
     overlay: bool,
 
     #[arg(
@@ -101,6 +109,7 @@ fn main() -> Result<()> {
 
     let image = fs::read(&args.input).into_diagnostic()?;
     let art = PixelArt::new(image, version, config).into_diagnostic()?;
+    let materials = art.materials();
     let schematic = art.schematic(Plane::Standing);
     let mut file = fs::File::create("output.litematic").into_diagnostic()?;
 
@@ -109,7 +118,9 @@ fn main() -> Result<()> {
         .into_diagnostic()?;
 
     #[cfg(debug_assertions)]
-    dbg!(art.materials().values().sum::<usize>());
+    dbg!(materials.values().sum::<usize>());
+
+    println!("{:?}", materials);
 
     Ok(())
 }

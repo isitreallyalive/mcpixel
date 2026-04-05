@@ -5,7 +5,7 @@ use image::{DynamicImage, ImageBuffer, Rgb, RgbImage, RgbaImage};
 
 pub(crate) fn run(image: DynamicImage, config: &Configuration) -> RgbImage {
     let mut image = resize(image, config.max_dimension as f32);
-    boost_saturation(&mut image, config.gamma, config.saturation);
+    // boost_saturation(&mut image, config.gamma, config.saturation);
     let image = quantize(image, config.palette_size as usize);
     image.save("processed.png").unwrap();
     image

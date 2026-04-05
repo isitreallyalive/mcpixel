@@ -12,20 +12,20 @@ message Block {
   optional PlacedBlock overlay = 2;
 }
 
-message Rgb {
-  float r = 1;
-  float g = 2;
+message Lab {
+  float l = 1;
+  float a = 2;
   float b = 3;
 }
 
 message Weight {
-  Rgb colour = 1;
+  Lab colour = 1;
   float weight = 2;
 }
 
 message BlockStats {
   Block block = 1;
-  Rgb average = 2;
+  Lab average = 2;
   repeated Weight weights = 3;
 }
 

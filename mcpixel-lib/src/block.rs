@@ -1,67 +1,53 @@
 use crate::proto::BlockStats;
 use kiddo::{ImmutableKdTree, SquaredEuclidean};
+use palette::{IntoColor, Lab, Srgb};
 use std::cmp::Ordering;
 use std::num::NonZero;
 
-const CANDIDATE_COUNT: NonZero<usize> = NonZero::new(30).unwrap();
+const CANDIDATE_COUNT: NonZero<usize> = NonZero::new(10).unwrap(); // 10 is enough now
 
-/// Scale factors derived from redmean weights at r_mean=128.
-const SCALE: [f32; 3] = [
-    1.5811388300841898, // red:  w = 2 + 128/256 = 2.5
-    2.,                 // green: w = 4.
-    1.5798734126505198, // blue: w = 2 + 127/256 ~= 2.496
-];
-
-/// Transform an RGB colour into the approximate redmean-weighted space.
-/// Both tree entries and query points must be transformed before use.
-fn redmean_transform([r, g, b]: [f32; 3]) -> [f32; 3] {
-    [r * SCALE[0], g * SCALE[1], b * SCALE[2]]
+fn to_lab([r, g, b]: [f32; 3]) -> [f32; 3] {
+    let lab: Lab = Srgb::new(r / 255., g / 255., b / 255.).into_color();
+    [lab.l, lab.a, lab.b]
 }
 
-/// See: https://en.wikipedia.org/wiki/Color_difference#sRGB
-fn redmean_distance([r1, g1, b1]: [f32; 3], [r2, g2, b2]: [f32; 3]) -> f32 {
-    let r_mean = (r1 + r2) / 2.;
-    let dr = r1 - r2;
-    let dg = g1 - g2;
-    let db = b1 - b2;
-
-    ((2. + r_mean / 256.) * dr * dr + 4. * dg * dg + (2. + (255. - r_mean) / 256.) * db * db).sqrt()
+fn lab_distance(a: [f32; 3], b: [f32; 3]) -> f32 {
+    let [l1, a1, b1] = a;
+    let [l2, a2, b2] = b;
+    (l1 - l2).powi(2) + (a1 - a2).powi(2) + (b1 - b2).powi(2)
 }
 
 impl BlockStats {
-    fn score(&self, target: [f32; 3]) -> f32 {
+    fn score(&self, target_lab: [f32; 3]) -> f32 {
         let mut total_distance = 0f32;
         let mut total_weight = 0f32;
 
         for w in &self.weights {
             if let Some(c) = w.colour {
-                total_distance += redmean_distance(target, [c.r, c.g, c.b]) * w.weight;
+                let sample_lab = [c.l, c.a, c.b];
+                total_distance += lab_distance(target_lab, sample_lab) * w.weight;
                 total_weight += w.weight;
             }
         }
 
         if total_weight == 0. {
-            return f32::MAX; // no usable samples means worst possible score
+            return f32::MAX;
         }
 
         total_distance / total_weight
     }
 }
+
 pub(crate) struct BlockIndex {
     pub tree: ImmutableKdTree<f32, 3>,
-    /// Maps tree-entry index -> original index in the stats slice.
     pub index_map: Vec<usize>,
 }
 
-/// Build a k-d tree containing the average LAB value of each block.
 pub(crate) fn build_tree(stats: &[BlockStats]) -> BlockIndex {
     let (entries, index_map): (Vec<_>, Vec<_>) = stats
         .iter()
         .enumerate()
-        .filter_map(|(i, s)| {
-            s.average
-                .map(|c| (redmean_transform([c.r, c.g, c.b]), i))
-        })
+        .filter_map(|(i, s)| s.average.map(|c| ([c.l, c.a, c.b], i)))
         .unzip();
 
     BlockIndex {
@@ -71,13 +57,8 @@ pub(crate) fn build_tree(stats: &[BlockStats]) -> BlockIndex {
 }
 
 /// Find the closest match in the k-d tree given a target colour.
-pub(crate) fn find_best(
-    target: [f32; 3],
-    stats: &[BlockStats],
-    index: &BlockIndex,
-) -> usize {
-    // transform the query point into the same space as the tree
-    let transformed = redmean_transform(target);
+pub(crate) fn find_best(target: [f32; 3], stats: &[BlockStats], index: &BlockIndex) -> usize {
+    let transformed = to_lab(target);
 
     index
         .tree
@@ -85,7 +66,7 @@ pub(crate) fn find_best(
         .iter()
         .map(|n| {
             let stats_idx = index.index_map[n.item as usize];
-            (stats_idx, stats[stats_idx].score(target))
+            (stats_idx, stats[stats_idx].score(transformed))
         })
         .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal))
         .map(|(idx, _)| idx)
