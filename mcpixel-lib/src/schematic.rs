@@ -68,9 +68,10 @@ fn get_block(id: &str, top: bool, plane: &Plane) -> Option<Block> {
 impl PixelArt {
     /// Does the pixel art have an overlay?
     fn has_overlay(&self) -> bool {
-        self.blocks
-            .iter()
-            .any(|row| row.iter().any(|(_, overlay)| overlay.is_some()))
+        self.blocks.iter().any(|row| {
+            row.iter()
+                .any(|cell| matches!(cell, Some((_, overlay)) if overlay.is_some()))
+        })
     }
 
     /// Turn the pixel art into a schematic.
@@ -95,8 +96,12 @@ impl PixelArt {
                 for (y, row) in self.blocks.iter().enumerate() {
                     let y = (height - 1 - y) as i32; // flip
 
-                    for (z, (base, overlay)) in row.iter().enumerate() {
+                    for (z, cell) in row.iter().enumerate() {
                         let z = (width - 1 - z) as i32; // flip
+
+                        let Some((base, overlay)) = cell else {
+                            continue;
+                        };
 
                         // base
                         if let Some(base) = get_block(&self.ids[base.i as usize], base.top, &plane)
@@ -121,7 +126,11 @@ impl PixelArt {
                 // x=width, y=height, z=depth
                 region.reshape(&[height as i32, depth, width as i32]); // yzx
                 for (x, row) in self.blocks.iter().enumerate() {
-                    for (z, (base, overlay)) in row.iter().enumerate() {
+                    for (z, cell) in row.iter().enumerate() {
+                        let Some((base, overlay)) = cell else {
+                            continue;
+                        };
+
                         // base
                         if let Some(base) = get_block(&self.ids[base.i as usize], base.top, &plane)
                         {

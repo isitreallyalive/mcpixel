@@ -1,6 +1,5 @@
 use crate::proto::PlacedBlock;
 use crate::version::Version;
-use image::Rgb;
 use std::collections::HashMap;
 use std::num::NonZero;
 
@@ -48,7 +47,7 @@ impl Default for Configuration {
 
 pub struct PixelArt {
     ids: Vec<String>,
-    blocks: Vec<Vec<(PlacedBlock, Option<PlacedBlock>)>>,
+    blocks: Vec<Vec<Option<(PlacedBlock, Option<PlacedBlock>)>>>,
 }
 
 impl PixelArt {
@@ -82,14 +81,20 @@ impl PixelArt {
         let tree = texture::build_tree(&textures);
         let mut cache = HashMap::<[u8; 3], usize>::with_capacity(config.palette_size as usize);
 
-        let blocks: Vec<Vec<_>> = (0..height)
+        let blocks: Vec<Vec<Option<(PlacedBlock, Option<PlacedBlock>)>>> = (0..height)
             .map(|y| {
                 (0..width)
-                    .filter_map(|x| {
-                        let Rgb(key) = *image.get_pixel(x, y);
-                        let idx = *cache.entry(key).or_insert_with(|| {
+                    .map(|x| {
+                        let pixel = image.get_pixel(x, y);
+
+                        if pixel[3] == 0 {
+                            return None;
+                        }
+
+                        let rgb = [pixel[0], pixel[1], pixel[2]];
+                        let idx = *cache.entry(rgb).or_insert_with(|| {
                             texture::find_best(
-                                key,
+                                rgb,
                                 &textures,
                                 &tree,
                                 candidate_count,
@@ -119,17 +124,19 @@ impl PixelArt {
         let mut materials = HashMap::new();
 
         for row in &self.blocks {
-            for (base, overlay) in row {
-                // base
-                *materials
-                    .entry(self.ids[base.i as usize].as_str())
-                    .or_insert(0) += 1;
-
-                // overlay
-                if let Some(overlay) = &overlay {
+            for cell in row {
+                if let Some((base, overlay)) = cell {
+                    // base
                     *materials
-                        .entry(self.ids[overlay.i as usize].as_str())
-                        .or_insert(0) += 2; // 2 layers
+                        .entry(self.ids[base.i as usize].as_str())
+                        .or_insert(0) += 1;
+
+                    // overlay
+                    if let Some(overlay) = &overlay {
+                        *materials
+                            .entry(self.ids[overlay.i as usize].as_str())
+                            .or_insert(0) += 2; // 2 layers
+                    }
                 }
             }
         }

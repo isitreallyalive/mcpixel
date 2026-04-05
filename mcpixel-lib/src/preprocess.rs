@@ -1,9 +1,9 @@
 use crate::Configuration;
 use exoquant::{Color, convert_to_indexed, ditherer, optimizer};
 use image::imageops::FilterType;
-use image::{DynamicImage, ImageBuffer, Rgb, RgbImage, RgbaImage};
+use image::{DynamicImage, ImageBuffer, Rgba, RgbaImage};
 
-pub(crate) fn run(image: DynamicImage, config: &Configuration) -> RgbImage {
+pub(crate) fn run(image: DynamicImage, config: &Configuration) -> RgbaImage {
     let mut image = resize(image, config.max_dimension as f32, config.scale_to_fit);
     boost_saturation(&mut image, config.gamma, config.saturation);
     let image = quantize(image, config.palette_size as usize);
@@ -108,7 +108,7 @@ fn boost_saturation(image: &mut RgbaImage, gamma: f32, factor: f32) {
 }
 
 /// Quantize an image's colors to a limited palette.
-fn quantize(image: RgbaImage, palette_size: usize) -> RgbImage {
+fn quantize(image: RgbaImage, palette_size: usize) -> RgbaImage {
     // convert to rgba8
     let pixels: Vec<Color> = image
         .pixels()
@@ -128,10 +128,15 @@ fn quantize(image: RgbaImage, palette_size: usize) -> RgbImage {
     // rebuild the image
     let mut img = ImageBuffer::new(width, height);
 
-    for (i, pixel) in img.pixels_mut().enumerate() {
+    for (i, (pixel, source)) in img.pixels_mut().zip(image.pixels()).enumerate() {
+        if source[3] == 0 {
+            *pixel = Rgba([0, 0, 0, 0]);
+            continue;
+        }
+
         let idx = indices[i] as usize;
         let Color { r, g, b, .. } = palette[idx];
-        *pixel = Rgb([r, g, b])
+        *pixel = Rgba([r, g, b, source[3]])
     }
 
     img

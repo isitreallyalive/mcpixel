@@ -1,14 +1,19 @@
 use crate::lab;
 use crate::proto::Texture;
-use image::RgbImage;
+use image::RgbaImage;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-pub(crate) fn penalty(image: &RgbImage, stats: &[Texture], target_penalty: f32) -> f32 {
+pub(crate) fn penalty(image: &RgbaImage, stats: &[Texture], target_penalty: f32) -> f32 {
     // collapse repeated colours first; preprocessing quantizes colours so duplicates are common.
     let mut counts = HashMap::<[u8; 3], usize>::new();
     for pixel in image.pixels() {
-        *counts.entry(pixel.0).or_insert(0) += 1;
+        if pixel[3] == 0 {
+            continue;
+        }
+
+        let rgb = [pixel[0], pixel[1], pixel[2]];
+        *counts.entry(rgb).or_insert(0) += 1;
     }
 
     // compute per-colour closest block distance and keep multiplicity for weighted median
