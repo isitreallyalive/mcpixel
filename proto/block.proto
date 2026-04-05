@@ -2,14 +2,20 @@ syntax = "proto3";
 
 package block;
 
+// todo: investigate scaling up floats to fit in sint32
+
 message PlacedBlock {
-  string id = 1;
+  uint32 i = 1; // index into the dictionary
   bool top = 2;
 }
 
-message Block {
+message Texture {
   PlacedBlock base = 1;
   optional PlacedBlock overlay = 2;
+  Lab average = 3;
+  float smoothness = 4;
+  repeated Lab colours = 5;
+  repeated float weights = 6 [packed = true];
 }
 
 message Lab {
@@ -18,18 +24,7 @@ message Lab {
   float b = 3;
 }
 
-message Weight {
-  Lab colour = 1;
-  float weight = 2;
-}
-
-message BlockStats {
-  Block block = 1;
-  Lab average = 2;
-  float smoothness = 3;
-  repeated Weight weights = 4;
-}
-
 message Version {
-  repeated BlockStats stats = 1;
+  repeated string ids = 1; // dictionary
+  repeated Texture textures = 2;
 }

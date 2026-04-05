@@ -3,6 +3,7 @@
 import argparse
 import logging
 
+import orjson
 from google.protobuf import json_format
 from requests import Session
 from src.block_pb2 import Version
@@ -11,7 +12,6 @@ from src.path import DATA_DIR
 from src.stats import compute_stats
 from src.texture import apply_overlays
 from src.version import fetch_versions, resolve_versions, extract_version
-
 
 
 def get_logger() -> logging.Logger:
@@ -30,7 +30,7 @@ def get_http() -> Session:
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", "-v", help="The version of Minecraft to fetch data for")
-    parser.add_argument("--overwrite", "-o", help="Overwrite existing files")
+    parser.add_argument("--overwrite", "-o", help="Overwrite existing files", action="store_true")
 
     return parser.parse_args()
 
@@ -50,24 +50,27 @@ def main() -> None:
         if not args.overwrite and out_path.exists():
             continue
 
-        textures, tags = extract_version(version)
+        textures, tags, ids = extract_version(version)
         logger.info(f"Extracted {len(textures):,} textures and {len(tags):,} tags for version {version.name}")
 
-        textures = filter_textures(version, textures, tags)
+        textures = filter_textures(version, ids, textures, tags)
         logger.info(f"Filtered to {len(textures):,} textures")
 
-        textures = apply_overlays(textures)
+        textures = apply_overlays(textures, ids)
         logger.info(f"Overlays applied, {len(textures):,} possible combinations")
 
-        stats = compute_stats(textures)
-        logger.info(f"Computed stats for {len(stats):,} textures")
+        textures = compute_stats(textures)
+        logger.info(f"Computed stats for {len(textures):,} textures")
 
-        output = Version(stats=stats)
+        output = Version(ids=ids, textures=textures)
 
         with open(out_path, "wb") as f:
             f.write(output.SerializeToString())
-        with open(DATA_DIR / f"{version.name}.json", "w") as f:
-            f.write(json_format.MessageToJson(output, indent=1, always_print_fields_with_no_presence=True))
+
+        with open(DATA_DIR / f"{version.name}.json", "wb") as f:
+            output_dict = json_format.MessageToDict(output, preserving_proto_field_name=True)
+            textures_only = {"textures": output_dict.get("textures", [])}
+            f.write(orjson.dumps(textures_only, option=orjson.OPT_INDENT_2))
 
 
 if __name__ == "__main__":

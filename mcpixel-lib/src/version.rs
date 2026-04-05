@@ -1,4 +1,4 @@
-use crate::proto::BlockStats;
+use crate::proto::Texture;
 use prost::Message;
 use prost::bytes::Buf;
 
@@ -10,7 +10,11 @@ impl Version {
         Ok(Self(version))
     }
 
-    pub(crate) fn stats(&self) -> &Vec<BlockStats> {
-        &self.0.stats
+    pub(crate) fn ids(&self) -> Vec<String> {
+        self.0.ids.clone()
+    }
+
+    pub(crate) fn textures(&self) -> &Vec<Texture> {
+        &self.0.textures
     }
 }

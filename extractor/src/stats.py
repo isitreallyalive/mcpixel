@@ -4,7 +4,7 @@ import numpy as np
 from skimage import color as skcolor
 
 from PIL import Image
-from src.block_pb2 import Block, BlockStats, PlacedBlock, Weight, Lab
+from src.block_pb2 import Lab, PlacedBlock, Texture
 from src.proto import Hashable
 
 
@@ -23,15 +23,12 @@ def _colour_frequency(image: Image.Image) -> list[tuple[tuple[float, float, floa
     return list(freq.items())
 
 
-def _normalise(freq: list[tuple[tuple[float, float, float], int]]) -> list[Weight]:
+def _normalise(freq: list[tuple[tuple[float, float, float], int]]) -> tuple[list[Lab], list[float]]:
     total = sum(count for _, count in freq)
     if total == 0:
-        return []
+        return [], []
 
-    return [
-        Weight(colour=_rgb_to_lab(r, g, b), weight=count / total)
-        for (r, g, b), count in freq
-    ]
+    return [_rgb_to_lab(r, g, b) for (r, g, b), _ in freq], [count / total for _, count in freq]
 
 
 def _average_lab(freq: list[tuple[tuple[float, float, float], int]]) -> Lab:
@@ -73,20 +70,23 @@ def _smoothness(image: Image.Image) -> float:
 
     return float(total / count)
 
+
 def compute_stats(textures: dict[tuple[Hashable[PlacedBlock], Hashable[PlacedBlock] | None], Image.Image]) -> list[
-    BlockStats]:
+    Texture]:
     stats = []
 
     for (base, overlay), texture in textures.items():
         freq = _colour_frequency(texture)
-        weights = _normalise(freq)
+        colours, weights = _normalise(freq)
         average = _average_lab(freq)
         smoothness = _smoothness(texture)
 
-        stats.append(BlockStats(
-            block=Block(base=base.get_proto(), overlay=overlay.get_proto() if overlay else None),
+        stats.append(Texture(
+            base=base.get_proto(),
+            overlay=overlay.get_proto() if overlay else None,
             average=average,
             smoothness=smoothness,
+            colours=colours,
             weights=weights,
         ))
 

@@ -100,9 +100,9 @@ def _parse_version(v: str) -> semver.Version:
     return semver.Version.parse(".".join(parts[:3]))
 
 
-def filter_textures(version: Version, textures: dict[Hashable[PlacedBlock], Image.Image], tags: dict[str, set[str]]) -> \
+def filter_textures(version: Version, ids: list[str], textures: dict[Hashable[PlacedBlock], Image.Image], tags: dict[str, set[str]]) -> \
         dict[Hashable[PlacedBlock], Image.Image]:
     """Remove textures that should not be considered."""
     report = _generate_report(version) if _parse_version(version.name) > NO_REPORT else None
 
-    return {block: img for block, img in textures.items() if _is_valid_texture(block.id, report, tags)}
+    return {block: img for block, img in textures.items() if _is_valid_texture(ids[block.i], report, tags)}

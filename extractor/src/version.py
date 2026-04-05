@@ -93,10 +93,11 @@ def resolve_versions(http: Session, versions: dict[str, str]) -> list[Version]:
     return resolved
 
 
-def extract_version(version: Version) -> tuple[dict[Hashable[PlacedBlock], Image.Image], dict[str, set[str]]]:
-    """Extract textures and tag membership from a client jar."""
+def extract_version(version: Version) -> tuple[dict[Hashable[PlacedBlock], Image.Image], dict[str, set[str]], list[str]]:
+    """Extract textures, tag membership, and a list of ids from a client jar."""
     textures = {}
     tags = {}
+    ids = []
 
     with (ZipFile(version.client, "r") as jar):
         for path in jar.namelist():
@@ -124,10 +125,10 @@ def extract_version(version: Version) -> tuple[dict[Hashable[PlacedBlock], Image
                 else:
                     top = False
 
-                textures[Hashable(PlacedBlock(id=name, top=top))] = image
+                textures[Hashable(PlacedBlock(i=len(ids), top=top))] = image
+                ids.append(name)
 
             # handle tags
-
             if (
                     path.startswith("data/minecraft/tags/block/")  # 1.21+
                     or path.startswith("data/minecraft/tags/blocks/")
@@ -139,4 +140,4 @@ def extract_version(version: Version) -> tuple[dict[Hashable[PlacedBlock], Image
                     if isinstance(v, str)
                 }
 
-    return textures, tags
+    return textures, tags, ids

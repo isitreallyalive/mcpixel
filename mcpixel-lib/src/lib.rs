@@ -1,4 +1,4 @@
-use crate::proto::Block;
+use crate::proto::PlacedBlock;
 use crate::version::Version;
 use image::Rgb;
 use std::collections::HashMap;
@@ -45,7 +45,8 @@ impl Default for Configuration {
 }
 
 pub struct PixelArt {
-    blocks: Vec<Vec<Block>>,
+    ids: Vec<String>,
+    blocks: Vec<Vec<(PlacedBlock, Option<PlacedBlock>)>>,
 }
 
 impl PixelArt {
@@ -62,27 +63,22 @@ impl PixelArt {
         let (width, height) = image.dimensions();
 
         // compute smoothness penalty
-        let stats = version
-            .stats()
+        let textures = version
+            .textures()
             .iter()
-            .filter(|s| {
-                s.block
-                    .as_ref()
-                    .expect("block is missing for this entry")
-                    .overlay
-                    .is_some()
-                    == config.overlay
-            })
+            .filter(|t| t.overlay.is_some() == config.overlay)
             .cloned()
             .collect::<Vec<_>>();
-        let smoothness_penalty = smoothness::penalty(&image, &stats, 0.3);
+        let smoothness_penalty = smoothness::penalty(&image, &textures, 0.3);
 
         // compute candidate count
-        let candidate_count =
-            NonZero::new(10.max((config.palette_size as f32 * smoothness_penalty / 0.1).ceil() as usize)).expect("this should always be at least 10");
+        let candidate_count = NonZero::new(
+            10.max((config.palette_size as f32 * smoothness_penalty / 0.1).ceil() as usize),
+        )
+        .expect("this should always be at least 10");
 
         // convert to blocks
-        let tree = block::build_tree(&stats);
+        let tree = block::build_tree(&textures);
         let mut cache = HashMap::<[u8; 3], usize>::new();
 
         let blocks: Vec<Vec<_>> = (0..height)
@@ -93,19 +89,24 @@ impl PixelArt {
                         let idx = *cache.entry(key).or_insert_with(|| {
                             block::find_best(
                                 key,
-                                &stats,
+                                &textures,
                                 &tree,
                                 candidate_count,
                                 smoothness_penalty,
                             )
                         });
-                        stats[idx].block.clone()
+                        let texture = &textures[idx];
+
+                        texture.base.map(|base| (base, texture.overlay))
                     })
                     .collect()
             })
             .collect();
 
-        Ok(Self { blocks })
+        Ok(Self {
+            ids: version.ids(),
+            blocks,
+        })
     }
 
     /// The size of the pixel art in blocks.
@@ -121,15 +122,17 @@ impl PixelArt {
         let mut materials = HashMap::new();
 
         for row in &self.blocks {
-            for block in row {
+            for (base, overlay) in row {
                 // base
                 *materials
-                    .entry(block.base.as_ref().expect("base should exist").id.as_str())
+                    .entry(self.ids[base.i as usize].as_str())
                     .or_insert(0) += 1;
 
                 // overlay
-                if let Some(overlay) = &block.overlay {
-                    *materials.entry(overlay.id.as_str()).or_insert(0) += 1;
+                if let Some(overlay) = &overlay {
+                    *materials
+                        .entry(self.ids[overlay.i as usize].as_str())
+                        .or_insert(0) += 1;
                 }
             }
         }

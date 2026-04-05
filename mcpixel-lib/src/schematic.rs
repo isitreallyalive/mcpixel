@@ -1,5 +1,4 @@
 use crate::PixelArt;
-use crate::proto::PlacedBlock;
 use mc_schem::schem::{VanillaStructureSaveOption, WorldEdit13SaveOption};
 use mc_schem::{Block, LitematicaSaveOption, Region};
 use std::io::Write;
@@ -51,11 +50,11 @@ impl Schematic {
     }
 }
 
-fn get_block(found: &PlacedBlock, plane: &Plane) -> Option<Block> {
-    let mut block = Block::from_id(&format!("minecraft:{}", found.id)).ok()?;
+fn get_block(id: &str, top: bool, plane: &Plane) -> Option<Block> {
+    let mut block = Block::from_id(&format!("minecraft:{id}")).ok()?;
 
     // set axis
-    let axis = match (plane, found.top) {
+    let axis = match (plane, top) {
         (Plane::Standing, false) => 'y',
         (Plane::Standing, true) => 'x',
         (Plane::Flat, false) => 'x',
@@ -71,7 +70,7 @@ impl PixelArt {
     fn has_overlay(&self) -> bool {
         self.blocks
             .iter()
-            .any(|row| row.iter().any(|b| b.overlay.is_some()))
+            .any(|row| row.iter().any(|(_, overlay)| overlay.is_some()))
     }
 
     /// Turn the pixel art into a schematic.
@@ -96,17 +95,18 @@ impl PixelArt {
                 for (y, row) in self.blocks.iter().enumerate() {
                     let y = (height - 1 - y) as i32; // flip
 
-                    for (z, block) in row.iter().enumerate() {
+                    for (z, (base, overlay)) in row.iter().enumerate() {
                         let z = (width - 1 - z) as i32; // flip
 
                         // base
-                        if let Some(base) = block.base.as_ref().and_then(|b| get_block(b, &plane)) {
+                        if let Some(base) = get_block(&self.ids[base.i as usize], base.top, &plane)
+                        {
                             region.set_block([base_x, y, z], &base).ok();
                         }
 
                         // overlay
                         if let Some(overlay) =
-                            block.overlay.as_ref().and_then(|b| get_block(b, &plane))
+                            overlay.and_then(|o| get_block(&self.ids[o.i as usize], o.top, &plane))
                         {
                             region.set_block([0, y, z], &overlay).ok();
                             region.set_block([2, y, z], &overlay).ok();
@@ -121,15 +121,17 @@ impl PixelArt {
                 // x=width, y=height, z=depth
                 region.reshape(&[height as i32, depth, width as i32]); // yzx
                 for (x, row) in self.blocks.iter().enumerate() {
-                    for (z, block) in row.iter().enumerate() {
+                    for (z, (base, overlay)) in row.iter().enumerate() {
                         // base
-                        if let Some(base) = block.base.as_ref().and_then(|b| get_block(b, &plane)) {
+                        if let Some(base) = get_block(&self.ids[base.i as usize], base.top, &plane)
+                        {
                             region.set_block([x as i32, 0, z as i32], &base).ok();
                         }
 
                         // overlay
-                        if let Some(overlay) =
-                            block.overlay.as_ref().and_then(|b| get_block(b, &plane))
+                        if let Some(overlay) = overlay
+                            .as_ref()
+                            .and_then(|o| get_block(&self.ids[o.i as usize], o.top, &plane))
                         {
                             region.set_block([x as i32, 1, z as i32], &overlay).ok();
                         }

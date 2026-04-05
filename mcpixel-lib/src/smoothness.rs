@@ -1,9 +1,9 @@
-use std::cmp::Ordering;
-use image::RgbImage;
 use crate::lab;
-use crate::proto::BlockStats;
+use crate::proto::Texture;
+use image::RgbImage;
+use std::cmp::Ordering;
 
-pub(crate) fn penalty(image: &RgbImage, stats: &[BlockStats], target_penalty: f32) -> f32 {
+pub(crate) fn penalty(image: &RgbImage, stats: &[Texture], target_penalty: f32) -> f32 {
     // compute per-pixel closest block distances
     let mut ratios = Vec::new();
 
@@ -17,14 +17,16 @@ pub(crate) fn penalty(image: &RgbImage, stats: &[BlockStats], target_penalty: f3
                 let mut total_distance = 0f32;
                 let mut total_weight = 0f32;
 
-                for w in &block.weights {
-                    if let Some(c) = w.colour {
-                        total_distance += lab::distance(target, [c.l, c.a, c.b]) * w.weight;
-                        total_weight += w.weight;
-                    }
+                for (c, w) in block.colours.iter().zip(&block.weights) {
+                    total_distance += lab::distance(target, [c.l, c.a, c.b]) * w;
+                    total_weight += w;
                 }
 
-                if total_weight < f32::EPSILON { f32::MAX } else { total_distance / total_weight }
+                if total_weight < f32::EPSILON {
+                    f32::MAX
+                } else {
+                    total_distance / total_weight
+                }
             };
 
             if score < min_dist {

@@ -3,7 +3,7 @@ from src.block_pb2 import PlacedBlock
 from src.proto import Hashable
 
 
-def apply_overlays(textures: dict[Hashable[PlacedBlock], Image.Image]) -> dict[
+def apply_overlays(textures: dict[Hashable[PlacedBlock], Image.Image], ids: list[str]) -> dict[
     tuple[Hashable[PlacedBlock], Hashable[PlacedBlock] | None], Image.Image]:
     """Apply overlays to a textures dict"""
     output = {}
@@ -12,7 +12,7 @@ def apply_overlays(textures: dict[Hashable[PlacedBlock], Image.Image]) -> dict[
     overlays = {
         block: img
         for block, img in textures.items()
-        if block.id.endswith("glass")
+        if ids[block.i].endswith("glass")
     }
 
     # find bases
