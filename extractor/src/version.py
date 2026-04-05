@@ -1,7 +1,11 @@
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Literal
+from zipfile import ZipFile
 
+import orjson
+from PIL import Image
 from requests import Session
 from src.path import DOWNLOAD_DIR
 from tqdm import tqdm
@@ -17,10 +21,6 @@ class Version:
     name: str
     client: Path
     server: Path
-
-    def __str__(self):
-        return self.name
-
 
 def fetch_versions(http: Session, version: str | None = None) -> dict[str, str]:
     """Returns a dictionary mapping versions of Minecraft to a URL to their corresponding client.json"""
@@ -64,9 +64,9 @@ def _fetch_jar(http: Session, side: Side, version: str, downloads: dict[str, dic
     return path
 
 
-def resolve_versions(http: Session, versions: dict[str, str]) -> dict[str, Version]:
+def resolve_versions(http: Session, versions: dict[str, str]) -> list[Version]:
     """Resolves versions to their client and server jars."""
-    resolved = {}
+    resolved = []
 
     for version, url in versions.items():
         # find the version's downloads
@@ -80,6 +80,40 @@ def resolve_versions(http: Session, versions: dict[str, str]) -> dict[str, Versi
         client = _fetch_jar(http, "client", version, downloads)
         server = _fetch_jar(http, "server", version, downloads)
 
-        resolved[version] = Version(version, client, server)
+        resolved.append(Version(version, client, server))
 
     return resolved
+
+def extract_version(version: Version) -> tuple[dict[str, Image.Image], dict[str, set[str]]]:
+    """Extract textures and tag membership from a client jar."""
+    textures = {}
+    tags = {}
+
+    with ZipFile(version.client, "r") as jar:
+        for path in jar.namelist():
+            name = Path(path).stem
+
+            # handle textures
+            if path.startswith("assets/minecraft/textures/block/") and path.endswith(".png"):
+                # read the texture
+                data = jar.read(path)
+                image = Image.open(BytesIO(data)).convert("RGBA")
+
+                # animated textures are tall strips - only use the first frame
+                w, h = image.size
+                if h > w:
+                    image = image.crop((0, 0, w, h))
+
+                textures[name] = image
+
+            # handle tags
+            if path.startswith("data/minecraft/tags/block/") and path.endswith(".json"):
+                data = orjson.loads(jar.read(path))
+                tags[name] = {
+                    v.lstrip("#").split(":")[1]
+                    for v in data.get("values", [])
+                    if isinstance(v, str)
+                }
+
+
+    return textures, tags

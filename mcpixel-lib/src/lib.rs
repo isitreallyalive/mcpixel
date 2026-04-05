@@ -1,7 +1,6 @@
 use crate::proto::Block;
 use crate::version::Version;
 use image::Rgb;
-use lab::Lab;
 use std::collections::HashMap;
 
 mod block;
@@ -76,7 +75,8 @@ impl PixelArt {
                     .filter_map(|x| {
                         let Rgb(key) = *image.get_pixel(x, y);
                         let idx = *cache.entry(key).or_insert_with(|| {
-                            block::find_best(Lab::from_rgb(&key), &stats, &tree).unwrap_or_default()
+                            block::find_best(key.map(|c| c as f32), &stats, &tree)
+                                .unwrap_or_default()
                         });
                         stats[idx].block.clone()
                     })

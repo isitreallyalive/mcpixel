@@ -13,7 +13,6 @@ image = { version = "0.25.10", default-features = false }
 kiddo = "5.3.0"
 thiserror = "2.0.18"
 mc_schem = "1.1.2"
-lab = "0.11.0"
 prost = "0.14.3"
 
 [build-dependencies]
