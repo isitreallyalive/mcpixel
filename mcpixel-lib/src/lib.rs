@@ -20,7 +20,6 @@ pub enum Error {
     Image(#[from] image::ImageError),
 }
 
-#[derive(Clone, Copy)]
 pub struct Configuration {
     pub max_dimension: u32,
     pub palette_size: u32,
