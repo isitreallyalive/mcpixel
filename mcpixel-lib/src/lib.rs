@@ -63,13 +63,12 @@ impl PixelArt {
         // preprocess
         let image = preprocess::run(image, &config);
         let (width, height) = image.dimensions();
+        let (ids, textures) = version.into_parts();
 
         // compute smoothness penalty
-        let textures = version
-            .textures()
-            .iter()
+        let textures = textures
+            .into_iter()
             .filter(|t| t.overlay.is_some() == config.overlay)
-            .cloned()
             .collect::<Vec<_>>();
         let smoothness_penalty = smoothness::penalty(&image, &textures, config.smoothness_penalty);
 
@@ -81,7 +80,7 @@ impl PixelArt {
 
         // convert to blocks
         let tree = texture::build_tree(&textures);
-        let mut cache = HashMap::<[u8; 3], usize>::new();
+        let mut cache = HashMap::<[u8; 3], usize>::with_capacity(config.palette_size as usize);
 
         let blocks: Vec<Vec<_>> = (0..height)
             .map(|y| {
@@ -105,10 +104,7 @@ impl PixelArt {
             })
             .collect();
 
-        Ok(Self {
-            ids: version.ids(),
-            blocks,
-        })
+        Ok(Self { ids, blocks })
     }
 
     /// The size of the pixel art in blocks (width, height).
@@ -133,7 +129,7 @@ impl PixelArt {
                 if let Some(overlay) = &overlay {
                     *materials
                         .entry(self.ids[overlay.i as usize].as_str())
-                        .or_insert(0) += 1;
+                        .or_insert(0) += 2; // 2 layers
                 }
             }
         }

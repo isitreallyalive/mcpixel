@@ -10,11 +10,7 @@ impl Version {
         Ok(Self(version))
     }
 
-    pub(crate) fn ids(&self) -> Vec<String> {
-        self.0.ids.clone()
-    }
-
-    pub(crate) fn textures(&self) -> &Vec<Texture> {
-        &self.0.textures
+    pub(crate) fn into_parts(self) -> (Vec<String>, Vec<Texture>) {
+        (self.0.ids, self.0.textures)
     }
 }

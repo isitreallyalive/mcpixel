@@ -5,12 +5,12 @@ use std::cmp::Ordering;
 use std::num::NonZero;
 
 impl Texture {
-    fn score(&self, target_lab: [f32; 3], smoothness_penalty: f32) -> f32 {
+    pub(crate) fn score(&self, target: [f32; 3], smoothness_penalty: f32) -> f32 {
         let mut total_distance = 0f32;
         let mut total_weight = 0f32;
 
         for (c, w) in self.colours.iter().zip(&self.weights) {
-            total_distance += lab::distance(target_lab, [c.l, c.a, c.b]) * w;
+            total_distance += lab::distance(target, [c.l, c.a, c.b]) * w;
             total_weight += w;
         }
 
