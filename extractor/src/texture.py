@@ -67,7 +67,7 @@ def apply_overlays(textures: dict[str, Image.Image]) -> dict[Block, Image.Image]
             result.paste(overlay, mask=overlay.split()[3])
 
             # add it to the output
-            output[Block(base_name, overlay_name)] = base_name
+            output[Block(base_name, overlay_name)] = result
 
     return output
 
