@@ -44,9 +44,11 @@ impl Default for Configuration {
     }
 }
 
+type StrippedTexture = (PlacedBlock, Option<PlacedBlock>);
+
 pub struct PixelArt {
     ids: Vec<String>,
-    blocks: Vec<Vec<Option<(PlacedBlock, Option<PlacedBlock>)>>>,
+    blocks: Vec<Vec<Option<StrippedTexture>>>,
 }
 
 impl PixelArt {
@@ -80,7 +82,7 @@ impl PixelArt {
         let tree = texture::build_tree(&textures);
         let mut cache = HashMap::<[u8; 3], usize>::with_capacity(config.palette_size as usize);
 
-        let blocks: Vec<Vec<Option<(PlacedBlock, Option<PlacedBlock>)>>> = (0..height)
+        let blocks: Vec<Vec<Option<StrippedTexture>>> = (0..height)
             .map(|y| {
                 (0..width)
                     .map(|x| {
@@ -123,19 +125,17 @@ impl PixelArt {
         let mut materials = HashMap::new();
 
         for row in &self.blocks {
-            for cell in row {
-                if let Some((base, overlay)) = cell {
-                    // base
-                    *materials
-                        .entry(self.ids[base.i as usize].as_str())
-                        .or_insert(0) += 1;
+            for (base, overlay) in row.iter().flatten() {
+                // base
+                *materials
+                    .entry(self.ids[base.i as usize].as_str())
+                    .or_insert(0) += 1;
 
-                    // overlay
-                    if let Some(overlay) = &overlay {
-                        *materials
-                            .entry(self.ids[overlay.i as usize].as_str())
-                            .or_insert(0) += 2; // 2 layers
-                    }
+                // overlay
+                if let Some(overlay) = &overlay {
+                    *materials
+                        .entry(self.ids[overlay.i as usize].as_str())
+                        .or_insert(0) += 2; // 2 layers
                 }
             }
         }

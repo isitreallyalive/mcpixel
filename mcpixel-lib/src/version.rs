@@ -2,6 +2,7 @@ use crate::proto::Texture;
 use prost::Message;
 use prost::bytes::Buf;
 
+#[derive(Clone)]
 pub struct Version(crate::proto::Version);
 
 impl Version {
