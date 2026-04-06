@@ -5,6 +5,7 @@ use std::num::NonZero;
 
 pub(crate) mod lab;
 mod preprocess;
+#[cfg(feature = "schematic")]
 pub mod schematic;
 mod smoothness;
 mod texture;

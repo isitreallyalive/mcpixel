@@ -4,15 +4,19 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["rayon", "image/default-formats"]
+default = ["recommended", "schematic"]
+recommended = ["rayon", "default-formats"]
+
+default-formats = ["image/default-formats"]
 rayon = ["image/rayon"]
+schematic = ["dep:mc_schem"]
 
 [dependencies]
 exoquant = "0.2.0"
 image = { version = "0.25.10", default-features = false }
 kiddo = "5.3.0"
 thiserror = "2.0.18"
-mc_schem = "1.1.2"
+mc_schem = { version = "1.1.2", optional = true }
 prost = "0.14.3"
 palette = "0.7.6"
 
