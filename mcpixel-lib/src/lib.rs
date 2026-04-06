@@ -45,11 +45,18 @@ impl Default for Configuration {
     }
 }
 
-type StrippedTexture = (PlacedBlock, Option<PlacedBlock>);
+type OptionalGrid<T> = Vec<Vec<Option<T>>>;
+type Pair<T> = (T, Option<T>);
+
+impl PlacedBlock {
+    fn resolve(self, ids: &[String]) -> (String, bool) {
+        (ids[self.i as usize].clone(), self.top)
+    }
+}
 
 pub struct PixelArt {
     ids: Vec<String>,
-    blocks: Vec<Vec<Option<StrippedTexture>>>,
+    blocks: OptionalGrid<Pair<PlacedBlock>>,
 }
 
 impl PixelArt {
@@ -83,7 +90,7 @@ impl PixelArt {
         let tree = texture::build_tree(&textures);
         let mut cache = HashMap::<[u8; 3], usize>::with_capacity(config.palette_size as usize);
 
-        let blocks: Vec<Vec<Option<StrippedTexture>>> = (0..height)
+        let blocks: OptionalGrid<Pair<PlacedBlock>> = (0..height)
             .map(|y| {
                 (0..width)
                     .map(|x| {
@@ -142,5 +149,23 @@ impl PixelArt {
         }
 
         materials
+    }
+
+    /// Returns the pixel art as a grid of blocks.
+    pub fn blocks(&self) -> OptionalGrid<Pair<(String, bool)>> {
+        self.blocks
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|texture| {
+                        texture.map(|(base, overlay)| {
+                            let base = base.resolve(&self.ids);
+                            let overlay = overlay.map(|o| o.resolve(&self.ids));
+                            (base, overlay)
+                        })
+                    })
+                    .collect()
+            })
+            .collect()
     }
 }
