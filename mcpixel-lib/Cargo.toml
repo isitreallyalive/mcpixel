@@ -7,11 +7,13 @@ edition = "2024"
 default = ["recommended", "schematic"]
 recommended = ["rayon", "default-formats"]
 
+clap = ["dep:clap"]
 default-formats = ["image/default-formats"]
 rayon = ["image/rayon"]
 schematic = ["dep:mc_schem"]
 
 [dependencies]
+clap = { version = "4.6.0", optional = true, default-features = false, features = ["derive"] }
 exoquant = "0.2.0"
 image = { version = "0.25.10", default-features = false }
 kiddo = "5.3.0"

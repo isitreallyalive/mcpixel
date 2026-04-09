@@ -1,8 +1,10 @@
+pub use crate::config::Configuration;
 use crate::proto::PlacedBlock;
 use crate::version::Version;
 use std::collections::HashMap;
 use std::num::NonZero;
 
+mod config;
 pub(crate) mod lab;
 mod preprocess;
 #[cfg(feature = "schematic")]
@@ -19,30 +21,6 @@ pub(crate) mod proto {
 pub enum Error {
     #[error("image error: {0}")]
     Image(#[from] image::ImageError),
-}
-
-pub struct Configuration {
-    pub max_dimension: u32,
-    pub palette_size: u32,
-    pub gamma: f32,
-    pub saturation: f32,
-    pub smoothness_penalty: f32,
-    pub overlay: bool,
-    pub scale_to_fit: bool,
-}
-
-impl Default for Configuration {
-    fn default() -> Self {
-        Self {
-            max_dimension: 32,
-            palette_size: 256,
-            gamma: 1.2,
-            saturation: 1.2,
-            smoothness_penalty: 0.3,
-            overlay: false,
-            scale_to_fit: false,
-        }
-    }
 }
 
 type OptionalGrid<T> = Vec<Vec<Option<T>>>;
@@ -78,17 +56,17 @@ impl PixelArt {
             .into_iter()
             .filter(|t| t.overlay.is_some() == config.overlay)
             .collect::<Vec<_>>();
-        let smoothness_penalty = smoothness::penalty(&image, &textures, config.smoothness_penalty);
+        let smoothness_penalty = smoothness::penalty(&image, &textures, config.smoothing);
 
         // compute candidate count
         let candidate_count = NonZero::new(
-            10.max((config.palette_size as f32 * smoothness_penalty / 0.1).ceil() as usize),
+            10.max((config.colours as f32 * smoothness_penalty / 0.1).ceil() as usize),
         )
         .expect("this should always be at least 10");
 
         // convert to blocks
         let tree = texture::build_tree(&textures);
-        let mut cache = HashMap::<[u8; 3], usize>::with_capacity(config.palette_size as usize);
+        let mut cache = HashMap::<[u8; 3], usize>::with_capacity(config.colours as usize);
 
         let blocks: OptionalGrid<Pair<PlacedBlock>> = (0..height)
             .map(|y| {

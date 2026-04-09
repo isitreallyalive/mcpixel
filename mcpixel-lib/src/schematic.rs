@@ -1,4 +1,6 @@
 use crate::PixelArt;
+#[cfg(feature = "clap")]
+use clap::ValueEnum;
 use mc_schem::schem::{VanillaStructureSaveOption, WorldEdit13SaveOption};
 use mc_schem::{Block, LitematicaSaveOption, Region};
 use std::io::Write;
@@ -16,16 +18,37 @@ impl From<Region> for Schematic {
 }
 
 /// The plane to render the schematic on.
-pub enum Plane {
-    Standing,
-    Flat,
+#[derive(Default)]
+#[cfg_attr(feature = "clap", derive(Clone, Debug, ValueEnum))]
+pub enum Orientation {
+    /// Standing, like a wall
+    #[default]
+    Vertical,
+    /// Laid flat on the ground
+    Horizontal,
 }
 
 /// All supported schematic formats.
+#[derive(Default)]
+#[cfg_attr(feature = "clap", derive(Clone, Debug, ValueEnum))]
 pub enum SchematicFormat {
+    /// Vanilla structure (.nbt)
     Vanilla,
+    /// Litematica schematic (.litematic)
+    #[default]
     Litematica,
-    WorldEdit13,
+    /// WorldEdit schematic (1.13+, .schem)
+    WorldEdit,
+}
+
+impl SchematicFormat {
+    pub const fn extension(&self) -> &'static str {
+        match self {
+            SchematicFormat::Vanilla => "nbt",
+            SchematicFormat::Litematica => "litematic",
+            SchematicFormat::WorldEdit => "schem",
+        }
+    }
 }
 
 impl Schematic {
@@ -42,7 +65,7 @@ impl Schematic {
             SchematicFormat::Litematica => self
                 .0
                 .save_litematica_writer(dest, &LitematicaSaveOption::default()),
-            SchematicFormat::WorldEdit13 => self
+            SchematicFormat::WorldEdit => self
                 .0
                 .save_world_edit_13_writer(dest, &WorldEdit13SaveOption::default()),
         }
@@ -50,15 +73,15 @@ impl Schematic {
     }
 }
 
-fn get_block(id: &str, top: bool, plane: &Plane) -> Option<Block> {
+fn get_block(id: &str, top: bool, plane: &Orientation) -> Option<Block> {
     let mut block = Block::from_id(&format!("minecraft:{id}")).ok()?;
 
     // set axis
     let axis = match (plane, top) {
-        (Plane::Standing, false) => 'y',
-        (Plane::Standing, true) => 'x',
-        (Plane::Flat, false) => 'x',
-        (Plane::Flat, true) => 'y',
+        (Orientation::Vertical, false) => 'y',
+        (Orientation::Vertical, true) => 'x',
+        (Orientation::Horizontal, false) => 'x',
+        (Orientation::Horizontal, true) => 'y',
     };
     block.attributes.insert("axis".into(), axis.into());
 
@@ -75,7 +98,7 @@ impl PixelArt {
     }
 
     /// Turn the pixel art into a schematic.
-    pub fn schematic(&self, plane: Plane) -> Schematic {
+    pub fn schematic(&self, plane: Orientation) -> Schematic {
         // create
         let mut region = Region::new();
         region.name = String::from("pixel_art");
@@ -87,7 +110,7 @@ impl PixelArt {
         // populate
         match plane {
             // stood up
-            Plane::Standing => {
+            Orientation::Vertical => {
                 let depth = if has_overlay { 3 } else { 1 };
                 let base_x = if has_overlay { 1 } else { 0 };
 
@@ -120,7 +143,7 @@ impl PixelArt {
                 }
             }
             // laying down
-            Plane::Flat => {
+            Orientation::Horizontal => {
                 let depth = if has_overlay { 2 } else { 1 };
 
                 // x=width, y=height, z=depth

@@ -3,3 +3,4 @@ target
 *.litematic
 data/*.json
 processed.png
+.test

@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 pub(crate) fn penalty(image: &RgbaImage, stats: &[Texture], target_penalty: f32) -> f32 {
-    // collapse repeated colours first; preprocessing quantizes colours so duplicates are common.
+    // collapse repeated colours first; preprocessing quantizes colours so duplicates are common
     let mut counts = HashMap::<[u8; 3], usize>::new();
     for pixel in image.pixels() {
         if pixel[3] == 0 {

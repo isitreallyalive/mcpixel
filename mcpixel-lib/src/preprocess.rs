@@ -4,9 +4,9 @@ use image::imageops::FilterType;
 use image::{DynamicImage, ImageBuffer, Rgba, RgbaImage};
 
 pub(crate) fn run(image: DynamicImage, config: &Configuration) -> RgbaImage {
-    let mut image = resize(image, config.max_dimension as f32, config.scale_to_fit);
-    boost_saturation(&mut image, config.gamma, config.saturation);
-    let image = quantize(image, config.palette_size as usize);
+    let mut image = resize(image, config.size as f32, config.stretch);
+    boost_saturation(&mut image, config.brightness, config.saturation);
+    let image = quantize(image, config.colours as usize);
     #[cfg(debug_assertions)]
     image.save("processed.png").unwrap();
     image

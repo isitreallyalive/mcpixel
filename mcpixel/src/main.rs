@@ -1,5 +1,5 @@
 use clap::Parser;
-use mcpixel::schematic::{Plane, SchematicFormat};
+use mcpixel::schematic::{Orientation, SchematicFormat};
 use mcpixel::version::Version;
 use mcpixel::{Configuration, PixelArt};
 use miette::{IntoDiagnostic, Result};
@@ -9,65 +9,30 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(help = "Input image file path")]
+    #[arg(help = "Input image file")]
     input: PathBuf,
-
-    #[arg(name = "size", short, long, help = "Maximum width/height for resizing")]
-    max_dimension: Option<u32>,
-
-    #[arg(short = 'p', long, help = "Number of colors to quantize the image to")]
-    palette_size: Option<u32>,
-
+    #[arg(help = "Schematic output")]
+    output: PathBuf,
     #[arg(
-        short = 'g',
-        long,
-        help = "Gamma correction factor for brightness adjustment"
+        long = "format", short = 'f', value_enum,
+        help = "Schematic format to output",
+        default_value_t = SchematicFormat::Litematica
     )]
-    gamma: Option<f32>,
-
-    #[arg(long, help = "Factor to boost image saturation")]
-    saturation: Option<f32>,
-
+    format: SchematicFormat,
     #[arg(
-        short = 'o',
-        long,
-        help = "Include a glass overlay layer to help blend colours"
+        long, value_enum,
+        default_value_t = Orientation::Vertical
     )]
-    overlay: bool,
-
-    #[arg(long = "smooth", help = "Target smoothness penalty")]
-    smoothness_penalty: Option<f32>,
-
+    orientation: Orientation,
     #[arg(
         short = 'm',
         long,
-        help = "Minecraft version target for pixel art",
+        help = "Minecraft version to target",
         default_value = "1.21.11"
     )]
     minecraft: String,
-
-    #[arg(
-        long,
-        help = "Scale rectangular images to fit max_dimension (may distort). If false, maintains aspect ratio"
-    )]
-    scale_to_fit: bool,
-}
-
-impl From<Args> for Configuration {
-    fn from(args: Args) -> Self {
-        let default = Self::default();
-        Self {
-            max_dimension: args.max_dimension.unwrap_or(default.max_dimension),
-            palette_size: args.palette_size.unwrap_or(default.palette_size),
-            gamma: args.gamma.unwrap_or(default.gamma),
-            saturation: args.saturation.unwrap_or(default.saturation),
-            overlay: args.overlay,
-            smoothness_penalty: args
-                .smoothness_penalty
-                .unwrap_or(default.smoothness_penalty),
-            scale_to_fit: args.scale_to_fit,
-        }
-    }
+    #[command(flatten)]
+    config: Configuration,
 }
 
 #[cfg(not(debug_assertions))]
@@ -113,7 +78,7 @@ fn load_version(version: &str) -> Result<Version> {
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
+    let mut args = Args::parse();
 
     #[cfg(debug_assertions)]
     dbg!(&args);
@@ -122,16 +87,23 @@ fn main() -> Result<()> {
         return Err(miette::miette!("Input path {:?} is not a file", args.input));
     }
 
+    // load data
     let version = load_version(&args.minecraft)?;
     let image = fs::read(&args.input).into_diagnostic()?;
-    let art = PixelArt::new(image, version, args.into()).into_diagnostic()?;
-    let materials = art.materials();
-    let schematic = art.schematic(Plane::Standing);
-    let mut file = fs::File::create("output.litematic").into_diagnostic()?;
 
-    schematic
-        .save(&mut file, SchematicFormat::Litematica)
-        .into_diagnostic()?;
+    // generate schematic and material list
+    let art = PixelArt::new(image, version, args.config).into_diagnostic()?;
+    let materials = art.materials();
+    let schematic = art.schematic(args.orientation);
+
+    // save schematic
+    if args.output.extension().is_none() {
+        args.output.set_extension(args.format.extension());
+    }
+
+    let mut file = fs::File::create(args.output).into_diagnostic()?;
+
+    schematic.save(&mut file, args.format).into_diagnostic()?;
 
     #[cfg(debug_assertions)]
     dbg!(materials.values().sum::<usize>());
