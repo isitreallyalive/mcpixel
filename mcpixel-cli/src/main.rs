@@ -7,7 +7,7 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(bin_name = "mcpixel", author, version, about)]
 struct Args {
     #[arg(help = "Input image file")]
     input: PathBuf,

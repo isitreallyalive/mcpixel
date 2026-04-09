@@ -1133,17 +1133,6 @@ name = "mcpixel"
 version = "0.0.0"
 dependencies = [
  "clap",
- "directories",
- "mcpixel-lib",
- "miette",
- "ureq",
-]
-
-[[package]]
-name = "mcpixel-lib"
-version = "0.1.0"
-dependencies = [
- "clap",
  "exoquant",
  "image",
  "kiddo",
@@ -1152,6 +1141,17 @@ dependencies = [
  "prost",
  "prost-build",
  "thiserror",
+]
+
+[[package]]
+name = "mcpixel-cli"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "directories",
+ "mcpixel",
+ "miette",
+ "ureq",
 ]
 
 [[package]]

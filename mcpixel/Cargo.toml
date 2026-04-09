@@ -3,9 +3,24 @@ name = "mcpixel"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = ["recommended", "schematic"]
+recommended = ["rayon", "default-formats"]
+
+clap = ["dep:clap"]
+default-formats = ["image/default-formats"]
+rayon = ["image/rayon"]
+schematic = ["dep:mc_schem"]
+
 [dependencies]
-mcpixel = { package = "mcpixel-lib", path = "../mcpixel-lib", features = ["clap"] }
-clap = { version = "4.6.0", features = ["derive"] }
-miette = { version = "7.6.0", features = ["fancy"] }
-ureq = "3.3.0"
-directories = "6.0.0"
+clap = { workspace = true, features = ["derive"], optional = true }
+exoquant.workspace = true
+image.workspace = true
+kiddo.workspace = true
+thiserror.workspace = true
+mc_schem = { workspace = true, optional = true }
+prost.workspace = true
+palette.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
