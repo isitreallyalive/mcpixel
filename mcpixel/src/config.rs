@@ -6,6 +6,7 @@ const DEFAULT_SATURATION: f32 = 1.2;
 const DEFAULT_SMOOTHING: f32 = 0.3;
 const DEFAULT_OVERLAY: bool = false;
 
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen::prelude::wasm_bindgen)]
 #[cfg_attr(feature = "clap", derive(clap::Args, Debug))]
 pub struct Configuration {
     /// Maximum width or height in blocks
@@ -62,6 +63,49 @@ impl Default for Configuration {
             saturation: DEFAULT_SATURATION,
             smoothing: DEFAULT_SMOOTHING,
             overlay: DEFAULT_OVERLAY,
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+mod wasm {
+    use super::*;
+    use wasm_bindgen::prelude::*;
+
+    #[derive(serde::Deserialize)]
+    struct ConfigurationInput {
+        #[serde(default)]
+        size: Option<u32>,
+        #[serde(default)]
+        stretch: Option<bool>,
+        #[serde(default)]
+        colours: Option<u32>,
+        #[serde(default)]
+        brightness: Option<f32>,
+        #[serde(default)]
+        saturation: Option<f32>,
+        #[serde(default)]
+        smoothing: Option<f32>,
+        #[serde(default)]
+        overlay: Option<bool>,
+    }
+
+    #[wasm_bindgen]
+    impl Configuration {
+        #[wasm_bindgen(constructor)]
+        pub fn new(obj: JsValue) -> Result<Configuration, JsValue> {
+            let input: ConfigurationInput = serde_wasm_bindgen::from_value(obj)
+                .map_err(|_| JsValue::from_str("invalid configuration"))?;
+
+            Ok(Self {
+                size: input.size.unwrap_or(DEFAULT_SIZE),
+                stretch: input.stretch.unwrap_or(DEFAULT_STRETCH),
+                colours: input.colours.unwrap_or(DEFAULT_COLOURS),
+                brightness: input.brightness.unwrap_or(DEFAULT_BRIGHTNESS),
+                saturation: input.saturation.unwrap_or(DEFAULT_SATURATION),
+                smoothing: input.smoothing.unwrap_or(DEFAULT_SMOOTHING),
+                overlay: input.overlay.unwrap_or(DEFAULT_OVERLAY),
+            })
         }
     }
 }

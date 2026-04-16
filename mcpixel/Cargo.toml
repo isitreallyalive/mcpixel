@@ -3,9 +3,13 @@ name = "mcpixel"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [features]
 default = ["recommended", "schematic"]
 recommended = ["rayon", "default-formats"]
+wasm = ["mc_schem/wasm"]
 
 clap = ["dep:clap"]
 default-formats = ["image/default-formats"]
@@ -18,9 +22,15 @@ exoquant.workspace = true
 image.workspace = true
 kiddo.workspace = true
 thiserror.workspace = true
-mc_schem = { workspace = true, optional = true }
 prost.workspace = true
 palette.workspace = true
+mc_schem = { git = "https://github.com/isitreallyalive/mc_schem", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde-wasm-bindgen.workspace = true
+wasm-bindgen.workspace = true
 
 [build-dependencies]
 prost-build.workspace = true

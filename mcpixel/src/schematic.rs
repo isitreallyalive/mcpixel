@@ -104,7 +104,7 @@ impl PixelArt {
         region.name = String::from("pixel_art");
 
         // resize
-        let (width, height) = self.dimensions();
+        let (width, height) = (self.width(), self.height());
         let has_overlay = self.has_overlay();
 
         // populate

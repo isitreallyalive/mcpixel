@@ -1,6 +1,6 @@
 use clap::Parser;
 use hex::FromHex;
-use mcpixel::Configuration;
+use mcpixel::{Configuration, PixelArt};
 use mcpixel::schematic::{Orientation, SchematicFormat};
 use mcpixel::version::Version;
 use miette::{IntoDiagnostic, Result};
@@ -57,16 +57,13 @@ fn load_version(version: &str) -> Result<Version> {
         // make sure it is still up to date
         let latest_checksum = {
             let hex = download(&format!("{DATA_URL}/{version}.md5"))?;
-            let digest = <[u8; 16]>::from_hex(hex.as_slice()).into_diagnostic()?;
-
-            md5::Digest(digest)
+            <[u8; 16]>::from_hex(hex.as_slice()).map(md5::Digest).into_diagnostic()?
         };
 
         let data = fs::read(&data_path).into_diagnostic()?;
-        let checksum = md5::compute(&data);
-        println!("{:?} {:?}", latest_checksum, checksum);
+        let current_checksum = md5::compute(&data);
 
-        if latest_checksum == checksum {
+        if latest_checksum == current_checksum {
             return Version::read(&data[..]).into_diagnostic();
         }
     }
@@ -90,26 +87,26 @@ fn main() -> Result<()> {
 
     // load data
     let version = load_version(&args.minecraft)?;
-    // let image = fs::read(&args.input).into_diagnostic()?;
-    //
-    // // generate schematic and material list
-    // let art = PixelArt::new(image, version, args.config).into_diagnostic()?;
-    // let materials = art.materials();
-    // let schematic = art.schematic(args.orientation);
-    //
-    // // save schematic
-    // if args.output.extension().is_none() {
-    //     args.output.set_extension(args.format.extension());
-    // }
-    //
-    // let mut file = fs::File::create(args.output).into_diagnostic()?;
-    //
-    // schematic.save(&mut file, args.format).into_diagnostic()?;
-    //
-    // #[cfg(debug_assertions)]
-    // dbg!(materials.values().sum::<usize>());
-    //
-    // println!("{:?}", materials);
+    let image = fs::read(&args.input).into_diagnostic()?;
+
+    // generate schematic and material list
+    let art = PixelArt::new(image, version, args.config).into_diagnostic()?;
+    let materials = art.materials();
+    let schematic = art.schematic(args.orientation);
+
+    // save schematic
+    if args.output.extension().is_none() {
+        args.output.set_extension(args.format.extension());
+    }
+
+    let mut file = fs::File::create(args.output).into_diagnostic()?;
+
+    schematic.save(&mut file, args.format).into_diagnostic()?;
+
+    #[cfg(debug_assertions)]
+    dbg!(materials.values().sum::<usize>());
+
+    println!("{:?}", materials);
 
     Ok(())
 }
