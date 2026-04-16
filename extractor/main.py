@@ -1,6 +1,7 @@
 # todo: support pre-1.5 terrain.png
 
 import argparse
+import hashlib
 import logging
 
 import orjson
@@ -63,9 +64,14 @@ def main() -> None:
         logger.info(f"Computed stats for {len(textures):,} textures")
 
         output = Version(ids=ids, textures=textures)
+        data = output.SerializeToString()
 
         with open(out_path, "wb") as f:
-            f.write(output.SerializeToString())
+            f.write(data)
+
+        with open(f"{out_path}.md5", "w") as f:
+            res = hashlib.md5(data)
+            f.write(res.hexdigest())
 
         with open(DATA_DIR / f"{version.name}.json", "wb") as f:
             output_dict = json_format.MessageToDict(output, preserving_proto_field_name=True)

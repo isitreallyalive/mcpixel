@@ -1,10 +1,13 @@
 use clap::Parser;
+use hex::FromHex;
+use mcpixel::Configuration;
 use mcpixel::schematic::{Orientation, SchematicFormat};
 use mcpixel::version::Version;
-use mcpixel::{Configuration, PixelArt};
 use miette::{IntoDiagnostic, Result};
 use std::fs;
 use std::path::PathBuf;
+
+const DATA_URL: &str = "https://github.com/isitreallyalive/mcpixel/raw/refs/heads/main/data";
 
 #[derive(Debug, Parser)]
 #[command(bin_name = "mcpixel", author, version, about)]
@@ -35,46 +38,44 @@ struct Args {
     config: Configuration,
 }
 
-#[cfg(not(debug_assertions))]
-fn download_version(version: &str) -> Result<Vec<u8>> {
-    ureq::get(format!(
-        "https://github.com/isitreallyalive/mcpixel/raw/refs/heads/main/data/{version}"
-    ))
-    .call()
-    .and_then(|mut r| r.body_mut().read_to_vec())
-    .into_diagnostic()
+fn download(url: &str) -> Result<Vec<u8>> {
+    ureq::get(url)
+        .call()
+        .and_then(|mut r| r.body_mut().read_to_vec())
+        .into_diagnostic()
 }
 
 /// Load version data.
 fn load_version(version: &str) -> Result<Version> {
-    // read from disk in debug
-    #[cfg(debug_assertions)]
-    let data = fs::read(format!("./data/{version}")).into_diagnostic()?;
+    let cache_dir = directories::ProjectDirs::from("dev", "newty", "mcpixel")
+        .map(|d| d.cache_dir().to_path_buf())
+        .or(std::env::current_dir().ok())
+        .expect("there should be somewhere to cache version data");
+    let data_path = cache_dir.join(version);
 
-    // read the cache/download the file in release
-    // todo: compare checksum for updates
-    #[cfg(not(debug_assertions))]
-    let data = if let Some(dirs) = directories::ProjectDirs::from("dev", "newty", "mcpixel") {
-        // find cache directory
-        let cache = dirs.cache_dir();
-        fs::create_dir_all(cache).into_diagnostic()?;
+    if data_path.exists() {
+        // make sure it is still up to date
+        let latest_checksum = {
+            let hex = download(&format!("{DATA_URL}/{version}.md5"))?;
+            let digest = <[u8; 16]>::from_hex(hex.as_slice()).into_diagnostic()?;
 
-        // check if the data has already been fetched
-        let data_path = cache.join(version);
+            md5::Digest(digest)
+        };
 
-        if data_path.exists() {
-            fs::read(data_path).into_diagnostic()?
-        } else {
-            // otherwise download it and save it
-            let data = download_version(version)?;
-            fs::write(data_path, &data).into_diagnostic()?;
-            data
+        let data = fs::read(&data_path).into_diagnostic()?;
+        let checksum = md5::compute(&data);
+        println!("{:?} {:?}", latest_checksum, checksum);
+
+        if latest_checksum == checksum {
+            return Version::read(&data[..]).into_diagnostic();
         }
-    } else {
-        download_version(version)?
-    };
+    }
 
-    Ok(Version::read(&data[..]).into_diagnostic()?)
+    // download the latest version data
+    let data = download(&format!("{DATA_URL}/{version}"))?;
+    fs::write(data_path, &data).into_diagnostic()?;
+
+    Version::read(&data[..]).into_diagnostic()
 }
 
 fn main() -> Result<()> {
@@ -89,26 +90,26 @@ fn main() -> Result<()> {
 
     // load data
     let version = load_version(&args.minecraft)?;
-    let image = fs::read(&args.input).into_diagnostic()?;
-
-    // generate schematic and material list
-    let art = PixelArt::new(image, version, args.config).into_diagnostic()?;
-    let materials = art.materials();
-    let schematic = art.schematic(args.orientation);
-
-    // save schematic
-    if args.output.extension().is_none() {
-        args.output.set_extension(args.format.extension());
-    }
-
-    let mut file = fs::File::create(args.output).into_diagnostic()?;
-
-    schematic.save(&mut file, args.format).into_diagnostic()?;
-
-    #[cfg(debug_assertions)]
-    dbg!(materials.values().sum::<usize>());
-
-    println!("{:?}", materials);
+    // let image = fs::read(&args.input).into_diagnostic()?;
+    //
+    // // generate schematic and material list
+    // let art = PixelArt::new(image, version, args.config).into_diagnostic()?;
+    // let materials = art.materials();
+    // let schematic = art.schematic(args.orientation);
+    //
+    // // save schematic
+    // if args.output.extension().is_none() {
+    //     args.output.set_extension(args.format.extension());
+    // }
+    //
+    // let mut file = fs::File::create(args.output).into_diagnostic()?;
+    //
+    // schematic.save(&mut file, args.format).into_diagnostic()?;
+    //
+    // #[cfg(debug_assertions)]
+    // dbg!(materials.values().sum::<usize>());
+    //
+    // println!("{:?}", materials);
 
     Ok(())
 }

@@ -9,3 +9,5 @@ clap = { workspace = true, features = ["derive"] }
 miette = { workspace = true, features = ["fancy"] }
 ureq.workspace = true
 directories.workspace = true
+md5 = "0.8.0"
+hex = "0.4.3"
