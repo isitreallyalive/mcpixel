@@ -144,9 +144,9 @@ impl PixelArt {
     pub fn new_wasm(
         image: &[u8],
         version: Version,
-        config: Option<Configuration>,
+        config: Option<crate::config::Config>,
     ) -> Result<PixelArt, JsValue> {
-        PixelArt::new(image, version, config.unwrap_or_default())
+        PixelArt::new(image, version, config.map(Into::into).unwrap_or_default())
             .map_err(|_| JsValue::from_str("invalid art"))
     }
 
