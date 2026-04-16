@@ -26,3 +26,5 @@ serde = "1.0.228"
 console_error_panic_hook = "0.1.7"
 serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = "0.2.118"
+mc_schem = { git = "https://github.com/isitreallyalive/mc_schem" }
+tsify = "0.5.6"

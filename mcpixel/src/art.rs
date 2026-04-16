@@ -6,6 +6,19 @@ use std::num::NonZero;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(typescript_custom_section)]
+const TS_APPEND_CONTENT: &'static str = r#"
+export type Materials = { [key: string]: number };
+"#;
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "Materials")]
+    pub type Materials;
+}
+
 type OptionalGrid<T> = Vec<Vec<Option<T>>>;
 type Pair<T> = (T, Option<T>);
 
@@ -138,23 +151,24 @@ impl PixelArt {
     }
 
     /// The width of the pixel art in blocks.
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
     pub fn width(&self) -> usize {
         self.blocks.len()
     }
 
     /// The height of the pixel art in blocks.
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
     pub fn height(&self) -> usize {
         self.blocks.first().map(|row| row.len()).unwrap_or_default()
     }
 
     /// Calculate the materials required to build the pixel art.
     #[cfg(target_arch = "wasm32")]
-    pub fn materials(&self) -> Result<JsValue, JsValue> {
+    #[allow(unused_variables)] // why is this even emitted???
+    #[wasm_bindgen(typescript_type = "Materials")]
+    pub fn materials(&self) -> Result<Materials, JsValue> {
         let materials = self.calc_materials();
 
         serde_wasm_bindgen::to_value(&materials)
+            .map(Materials::from)
             .map_err(|_| JsValue::from_str("failed to serialize materials"))
     }
 }
