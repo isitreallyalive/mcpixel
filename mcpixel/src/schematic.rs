@@ -1,4 +1,5 @@
 use crate::PixelArt;
+use crate::art::PlacedBlockLayer;
 #[cfg(feature = "clap")]
 use clap::ValueEnum;
 use mc_schem::schem::{VanillaStructureSaveOption, WorldEdit13SaveOption};
@@ -93,7 +94,7 @@ impl PixelArt {
     fn has_overlay(&self) -> bool {
         self.blocks.iter().any(|row| {
             row.iter()
-                .any(|cell| matches!(cell, Some((_, overlay)) if overlay.is_some()))
+                .any(|cell| matches!(cell, Some(layer) if layer.overlay.is_some()))
         })
     }
 
@@ -122,7 +123,7 @@ impl PixelArt {
                     for (z, cell) in row.iter().enumerate() {
                         let z = (width - 1 - z) as i32; // flip
 
-                        let Some((base, overlay)) = cell else {
+                        let Some(PlacedBlockLayer { base, overlay }) = cell else {
                             continue;
                         };
 
@@ -150,7 +151,7 @@ impl PixelArt {
                 region.reshape(&[height as i32, depth, width as i32]); // yzx
                 for (x, row) in self.blocks.iter().enumerate() {
                     for (z, cell) in row.iter().enumerate() {
-                        let Some((base, overlay)) = cell else {
+                        let Some(PlacedBlockLayer { base, overlay }) = cell else {
                             continue;
                         };
 

@@ -5,12 +5,15 @@ mod art;
 mod config;
 pub(crate) mod lab;
 mod preprocess;
-pub(crate) mod proto;
 #[cfg(feature = "schematic")]
 pub mod schematic;
 mod smoothness;
 mod texture;
 pub mod version;
+
+pub(crate) mod proto {
+    include!(concat!(env!("OUT_DIR"), "/block.rs"));
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

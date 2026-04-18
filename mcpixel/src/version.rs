@@ -24,6 +24,6 @@ impl Version {
 impl Version {
     #[wasm_bindgen(constructor)]
     pub fn new_wasm(version: &[u8]) -> Result<Self, JsValue> {
-        Version::read(version).map_err(|_| JsValue::from_str("invalid version"))
+        Version::read(version).map_err(|e| JsValue::from(format!("invalid version: {e}")))
     }
 }

@@ -1,10 +1,16 @@
 macro_rules! config {
     ($(
-        $name:ident: $type:ty = $default:expr
+        $name:ident $([$long:expr])? $(($short:expr))?: $type:ty = $default:expr
     ),*) => {
         #[cfg_attr(feature = "clap", derive(clap::Args, Debug))]
         pub struct Configuration {
-            $(pub $name: $type),*
+            $(
+                #[cfg_attr(feature = "clap", arg(
+                    long$( = $long)?, $(short = $short,)?
+                    default_value_t = $default
+                ))]
+                pub $name: $type
+            ),*
         }
 
         impl Default for Configuration {
@@ -35,11 +41,11 @@ macro_rules! config {
 }
 
 config! {
-    size: u32 = 32,
+    size ('s'): u32 = 32,
     stretch: bool = false,
-    colours: u32 = 256,
-    brightness: f32 = 1.2,
+    colours ('c'): u32 = 256,
+    brightness ('b'): f32 = 1.2,
     saturation: f32 = 1.2,
-    smoothing: f32 = 0.3,
-    overlay: bool = false
+    smoothing ["smooth"]: f32 = 0.3,
+    overlay ('o'): bool = false
 }

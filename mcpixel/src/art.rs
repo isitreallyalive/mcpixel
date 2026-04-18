@@ -6,26 +6,24 @@ use std::num::NonZero;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(typescript_custom_section)]
-const TS_APPEND_CONTENT: &'static str = r#"
-export type Materials = { [key: string]: number };
-"#;
+type Grid<T> = Vec<Vec<Option<T>>>;
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(typescript_type = "Materials")]
-    pub type Materials;
+pub(crate) struct PlacedBlockLayer {
+    pub(crate) base: PlacedBlock,
+    pub(crate) overlay: Option<PlacedBlock>,
 }
 
-type OptionalGrid<T> = Vec<Vec<Option<T>>>;
-type Pair<T> = (T, Option<T>);
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, tsify::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi))]
+pub struct BlockLayer {
+    pub base: String,
+    pub overlay: Option<String>,
+}
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct PixelArt {
     pub(crate) ids: Vec<String>,
-    pub(crate) blocks: OptionalGrid<Pair<PlacedBlock>>,
+    pub(crate) blocks: Grid<PlacedBlockLayer>,
 }
 
 impl PixelArt {
@@ -59,7 +57,7 @@ impl PixelArt {
         let tree = texture::build_tree(&textures);
         let mut cache = HashMap::<[u8; 3], usize>::with_capacity(config.colours as usize);
 
-        let blocks: OptionalGrid<Pair<PlacedBlock>> = (0..height)
+        let blocks = (0..height)
             .map(|y| {
                 (0..width)
                     .map(|x| {
@@ -81,7 +79,10 @@ impl PixelArt {
                         });
                         let texture = &textures[idx];
 
-                        texture.base.map(|base| (base, texture.overlay))
+                        texture.base.map(|base| PlacedBlockLayer {
+                            base,
+                            overlay: texture.overlay,
+                        })
                     })
                     .collect()
             })
@@ -90,66 +91,45 @@ impl PixelArt {
         Ok(Self { ids, blocks })
     }
 
-    /// Returns the pixel art as a grid of blocks.
-    pub fn blocks(&self) -> OptionalGrid<Pair<(String, bool)>> {
-        self.blocks
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|texture| {
-                        texture.map(|(base, overlay)| {
-                            let base = base.resolve(&self.ids);
-                            let overlay = overlay.map(|o| o.resolve(&self.ids));
-                            (base, overlay)
-                        })
-                    })
-                    .collect()
-            })
-            .collect()
-    }
-
-    fn calc_materials(&self) -> HashMap<&str, usize> {
+    fn compute_materials(&self) -> HashMap<&str, usize> {
         let mut materials = HashMap::new();
 
-        for row in &self.blocks {
-            for (base, overlay) in row.iter().flatten() {
-                // base
-                *materials
-                    .entry(self.ids[base.i as usize].as_str())
-                    .or_insert(0) += 1;
+        for layer in self.blocks.iter().flatten().flatten() {
+            // base
+            *materials
+                .entry(self.ids[layer.base.i as usize].as_str())
+                .or_insert(0) += 1;
 
-                // overlay
-                if let Some(overlay) = &overlay {
-                    *materials
-                        .entry(self.ids[overlay.i as usize].as_str())
-                        .or_insert(0) += 2; // 2 layers
-                }
+            // overlay
+            if let Some(overlay) = &layer.overlay {
+                *materials
+                    .entry(self.ids[overlay.i as usize].as_str())
+                    .or_insert(0) += 2; // 2 layers
             }
         }
 
         materials
     }
 
-    /// Calculate the materials required to build the pixel art.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn materials(&self) -> HashMap<&str, usize> {
-        self.calc_materials()
+    fn compute_blocks(&self) -> Grid<BlockLayer> {
+        self.blocks
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|layer| {
+                        layer.as_ref().map(|layer| BlockLayer {
+                            base: self.ids[layer.base.i as usize].clone(),
+                            overlay: layer.overlay.map(|o| self.ids[o.i as usize].clone()),
+                        })
+                    })
+                    .collect()
+            })
+            .collect()
     }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl PixelArt {
-    #[cfg(target_arch = "wasm32")]
-    #[wasm_bindgen(constructor)]
-    pub fn new_wasm(
-        image: &[u8],
-        version: Version,
-        config: Option<crate::config::Config>,
-    ) -> Result<PixelArt, JsValue> {
-        PixelArt::new(image, version, config.map(Into::into).unwrap_or_default())
-            .map_err(|_| JsValue::from_str("invalid art"))
-    }
-
     /// The width of the pixel art in blocks.
     pub fn width(&self) -> usize {
         self.blocks.len()
@@ -159,16 +139,71 @@ impl PixelArt {
     pub fn height(&self) -> usize {
         self.blocks.first().map(|row| row.len()).unwrap_or_default()
     }
+}
 
+#[cfg(not(target_arch = "wasm32"))]
+impl PixelArt {
     /// Calculate the materials required to build the pixel art.
-    #[cfg(target_arch = "wasm32")]
-    #[allow(unused_variables)] // why is this even emitted???
-    #[wasm_bindgen(typescript_type = "Materials")]
-    pub fn materials(&self) -> Result<Materials, JsValue> {
-        let materials = self.calc_materials();
+    pub fn materials(&self) -> HashMap<&str, usize> {
+        self.compute_materials()
+    }
 
-        serde_wasm_bindgen::to_value(&materials)
-            .map(Materials::from)
-            .map_err(|_| JsValue::from_str("failed to serialize materials"))
+    /// Returns the pixel art as a grid of blocks.
+    pub fn blocks(&self) -> Grid<BlockLayer> {
+        self.compute_blocks()
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+mod wasm {
+    use super::*;
+
+    #[wasm_bindgen(typescript_custom_section)]
+    const TS_APPEND_CONTENT: &'static str = r#"
+export type Materials = { [key: string]: number };
+export type Blocks = { base: string; overlay?: string; }[][];
+"#;
+
+    #[wasm_bindgen]
+    extern "C" {
+        #[wasm_bindgen(typescript_type = "Materials")]
+        pub type Materials;
+
+        #[wasm_bindgen(typescript_type = "Blocks")]
+        pub type Blocks;
+    }
+
+    #[wasm_bindgen]
+    impl PixelArt {
+        #[wasm_bindgen(constructor)]
+        pub fn new_wasm(
+            image: &[u8],
+            version: Version,
+            config: Option<crate::config::Config>,
+        ) -> Result<PixelArt, JsValue> {
+            PixelArt::new(image, version, config.map(Into::into).unwrap_or_default())
+                .map_err(|_| JsValue::from_str("invalid art"))
+        }
+
+        // todo: can this be turned into js_sys::Map and keep typing?
+        /// Calculate the materials required to build the pixel art.
+        #[allow(unused_variables)] // why is this even emitted???
+        #[wasm_bindgen(typescript_type = "Materials")]
+        pub fn materials(&self) -> Result<Materials, JsValue> {
+            let materials = self.compute_materials();
+
+            serde_wasm_bindgen::to_value(&materials)
+                .map(Materials::from)
+                .map_err(|_| JsValue::from_str("failed to serialize materials"))
+        }
+
+        /// Returns the pixel art as a grid of blocks.
+        pub fn blocks(&self) -> Result<Blocks, JsValue> {
+            let blocks = self.compute_blocks();
+
+            serde_wasm_bindgen::to_value(&blocks)
+                .map(Blocks::from)
+                .map_err(|_| JsValue::from_str("failed to serialize blocks"))
+        }
     }
 }

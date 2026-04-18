@@ -1,6 +1,9 @@
-import {sveltekit} from '@sveltejs/kit/vite';
-import {defineConfig} from 'vite';
+import {sveltekit} from "@sveltejs/kit/vite";
+import {defineConfig} from "vite";
+import wasm from "vite-plugin-wasm";
+import arrayBuffer from "vite-plugin-arraybuffer";
 
 export default defineConfig({
-	plugins: [sveltekit()]
+  assetsInclude: ["../data/*"],
+  plugins: [sveltekit(), wasm(), arrayBuffer()]
 });
